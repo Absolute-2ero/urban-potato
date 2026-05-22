@@ -1,0 +1,17 @@
+{
+  "vegan":        ["plant-based", "plant based", "no animal", "pure vegetarian", "纯素", "全素", "纯植物"],
+  "vegetarian":   ["veggie", "no meat", "meat free", "素食", "素菜", "吃素", "斋菜"],
+  "halal":        ["halal certified", "muslim friendly", "清真", "穆斯林", "真主", "清真认证"],
+  "kosher":       ["kosher certified", "jewish food", "犹太", "洁食"],
+  "organic":      ["organic food", "organically grown", "有机", "有机食品", "有机食材"],
+  "gluten-free":  ["gluten free", "no gluten", "celiac safe", "wheat free", "无麸质", "无小麦", "不含麸质", "无麦"],
+  "dairy-free":   ["dairy free", "no dairy", "no milk", "lactose free", "lactose intolerant", "无乳制品", "无牛奶", "不含乳", "无乳糖"],
+  "nut-free":     ["nut free", "no nuts", "无坚果", "不含坚果"],
+  "shellfish-free": ["no shellfish", "shellfish free", "无贝类", "无海鲜贝壳", "不含贝类"],
+  "soy-free":     ["soy free", "no soy", "无大豆", "不含大豆", "无豆制品"],
+  "low-carb":     ["low carb", "low carbohydrate", "carb free", "low sugar", "低碳", "低碳水", "低糖", "少碳水"],
+  "keto":         ["ketogenic", "keto friendly", "keto diet", "生酮", "生酮饮食", "酮体"],
+  "high-protein": ["high protein", "protein rich", "protein packed", "高蛋白", "高蛋白质", "增肌餐", "健身餐"],
+  "low-calorie":  ["low calorie", "low cal", "light meal", "diet food", "低热量", "低卡", "减脂餐", "清淡"],
+  "low-sodium":   ["low sodium", "low salt", "no salt added", "低盐", "低钠", "少盐", "无盐添加"]
+}

@@ -1,0 +1,82 @@
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+*.so
+
+# 虚拟环境
+.venv/
+venv/
+ENV/
+env/
+.env.bak
+
+# ── 敏感配置（.env 只保留示例文件）─────────────────────────────────────────
+backend/.env
+!backend/.env.example
+
+# ── 数据库 / 本地数据 ─────────────────────────────────────────────────────
+backend/data/food_db.sqlite
+backend/data/food_db.sqlite-wal
+backend/data/food_db.sqlite-shm
+*.db
+*.sqlite
+*.sqlite3
+
+# ── 日志 ──────────────────────────────────────────────────────────────────
+*.log
+logs/
+backend/logs/
+
+# ── Elasticsearch snapshot ────────────────────────────────────────────────
+backend/data/es_snapshot/
+
+# ── Node / Frontend ───────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+*.tsbuildinfo
+
+# ── IDE / 编辑器 ─────────────────────────────────────────────────────────
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+.vscode/launch.json
+
+# ── 系统 ──────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+desktop.ini
+
+# ── 测试覆盖率 ────────────────────────────────────────────────────────────
+.coverage
+.pytest_cache/
+htmlcov/
+
+# ── Docker 本地数据卷 ─────────────────────────────────────────────────────
+.docker-data/
+
+# ── 临时文件 ─────────────────────────────────────────────────────────────
+*.tmp
+*.bak
+*.orig

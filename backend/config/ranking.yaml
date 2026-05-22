@@ -1,0 +1,28 @@
+sort_modes:
+  default:
+    text_score:      0.40
+    diet_score:      0.30
+    rating_score:    0.15
+    distance_score:  0.10
+    personalization: 0.05
+
+  diet_first:
+    text_score:      0.20
+    diet_score:      0.60
+    rating_score:    0.10
+    distance_score:  0.05
+    personalization: 0.05
+
+  rating_first:
+    text_score:      0.30
+    diet_score:      0.20
+    rating_score:    0.40
+    distance_score:  0.05
+    personalization: 0.05
+
+  distance_first:
+    text_score:      0.30
+    diet_score:      0.20
+    rating_score:    0.10
+    distance_score:  0.35
+    personalization: 0.05
