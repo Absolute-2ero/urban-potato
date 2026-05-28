@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//tmp/**)",
+      "Bash(curl -s 'http://localhost:8000/api/food/search?q=%E7%B1%B3%E9%A5%AD')",
+      "Bash(python3 -)",
+      "Bash(timeout 8 python3 -m uvicorn main:app --port 8001)",
+      "Bash(sudo docker ps --format \"table {{.Names}}\\\\t{{.Status}}\\\\t{{.Ports}}\")",
+      "Bash(sudo docker compose ps)",
+      "Bash(sudo docker compose up -d)",
+      "Bash(pg_isready -h 127.0.0.1 -p 5432 -U dietsearch)",
+      "Bash(redis-cli -h 127.0.0.1 -p 6379 ping)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 eleme_login.py)"
+    ]
+  }
+}

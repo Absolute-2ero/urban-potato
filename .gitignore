@@ -80,3 +80,4 @@ htmlcov/
 *.tmp
 *.bak
 *.orig
+backend/crawler/eleme_cookies.json
