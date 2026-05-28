@@ -1,16 +1,17 @@
 """
-饿了么登录 Cookie 获取工具（服务器 / 本地通用）。
+饿了么登录 Cookie 获取工具（本机有界面版）。
 
-用法：
+用法（本机）：
+    pip install playwright
+    python -m playwright install chromium
     python eleme_login.py
 
 流程：
-  1. 脚本在终端问你手机号
-  2. headless 浏览器自动填手机号、点发送验证码
-  3. 你在终端输入收到的验证码
-  4. 脚本自动完成登录、保存 Cookie
-
-无需 X display，服务器直接可用。
+  1. 弹出浏览器窗口
+  2. 脚本自动填手机号、勾协议、点「获取验证码」
+  3. 如果出现「运营商验证」：按提示从手机发短信，回车继续
+     如果出现普通验证码输入框：在终端输入收到的 6 位码
+  4. 自动完成登录，保存 Cookie
 """
 import json
 import sys
@@ -25,235 +26,275 @@ UA = (
     "Mobile/15E148 Safari/604.1"
 )
 
+# 本机不需要代理；服务器需要。自动检测：
+import os
+_PROXY = os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY") or None
 
-def _drag_captcha(frame, page) -> bool:
-    """尝试自动拖动阿里 NoCaptcha 滑块。返回 True 表示尝试了拖动。"""
+
+def _drag_slider(frame, page) -> bool:
+    """尝试自动拖动阿里 NoCaptcha 滑块。"""
     import random
     try:
-        # 找滑块手柄
-        handle = frame.query_selector(".nc_iconfont.btn_slide, .btn_slide, [class*='btn_slide']")
-        if not handle:
-            handle = frame.query_selector("[id*='nc'] button, [id*='nc'] span[role]")
-        if not handle:
-            print("  找不到滑块手柄")
+        handle = frame.query_selector(
+            ".nc_iconfont.btn_slide, .btn_slide, "
+            "[class*='btn_slide'], [id*='nc'] .btn_slide"
+        )
+        if not handle or not handle.is_visible():
             return False
 
         box = handle.bounding_box()
         if not box:
             return False
 
-        # 找轨道宽度
-        track = frame.query_selector(".nc-lang-cnt, [class*='nc'][class*='track'], #nc_2__scale_text")
-        track_width = 260  # 默认宽度
+        track = frame.query_selector(
+            ".nc-lang-cnt, [class*='scale_text'], #nc_2__scale_text"
+        )
+        track_width = 250
         if track:
             tb = track.bounding_box()
             if tb:
-                track_width = int(tb["width"]) - int(box["width"])
+                track_width = max(int(tb["width"]) - int(box["width"]), 100)
 
-        # 起点：滑块中心
-        start_x = box["x"] + box["width"] / 2
-        start_y = box["y"] + box["height"] / 2
+        sx = box["x"] + box["width"] / 2
+        sy = box["y"] + box["height"] / 2
 
-        # 模拟人类拖动：慢启动、加速、减速
-        page.mouse.move(start_x, start_y)
+        page.mouse.move(sx, sy)
         page.mouse.down()
-        time.sleep(0.2)
+        time.sleep(0.15)
 
-        steps = 30
+        steps = 35
         for i in range(steps):
-            # 非线性进度（缓入缓出）
             t = i / steps
-            ease = t * t * (3 - 2 * t)  # smoothstep
-            offset_x = ease * track_width
-            jitter_y = random.uniform(-1, 1)
-            page.mouse.move(start_x + offset_x, start_y + jitter_y,
-                            steps=1)
-            time.sleep(random.uniform(0.01, 0.04))
+            ease = t * t * (3 - 2 * t)
+            page.mouse.move(
+                sx + ease * track_width,
+                sy + random.uniform(-1.5, 1.5),
+            )
+            time.sleep(random.uniform(0.008, 0.035))
 
-        page.mouse.move(start_x + track_width, start_y, steps=3)
-        time.sleep(0.3)
+        page.mouse.move(sx + track_width, sy)
+        time.sleep(0.25)
         page.mouse.up()
         time.sleep(1.5)
         print("  滑块拖动完成")
         return True
     except Exception as e:
-        print(f"  滑块拖动出错: {e}")
+        print(f"  滑块拖动失败: {e}")
         return False
 
 
+def _handle_carrier_verify(login_frame, page) -> bool:
+    """
+    处理运营商一键验证页面：
+    页面显示「收件人」和「短信内容」，用户需要从手机发短信完成验证。
+    返回 True 表示检测到并处理了该页面。
+    """
+    try:
+        # 检测运营商验证页面特征
+        carrier_tip = login_frame.query_selector(
+            "text=请使用以下手机号发送短信完成验证, "
+            "[class*='operator'], .operator-verify, "
+            "[class*='carrier']"
+        )
+        # 更宽泛：找「去发送短信」按钮
+        send_btn = login_frame.query_selector(
+            "button:has-text('去发送短信'), "
+            "a:has-text('去发送短信'), "
+            ".go-send-btn"
+        )
+        done_btn = login_frame.query_selector(
+            "button:has-text('已发送短信'), "
+            "a:has-text('已发送短信'), "
+            ".sent-btn, [class*='sent']"
+        )
+
+        if not (carrier_tip or send_btn or done_btn):
+            return False
+
+        print("\n  ⚠️  检测到「运营商验证」页面！")
+
+        # 提取收件号码和短信内容
+        try:
+            recipient = login_frame.inner_text("[class*='phone'], .operator-phone, td:nth-child(2):first-of-type")
+        except Exception:
+            recipient = "(见浏览器窗口)"
+        try:
+            sms_content = login_frame.inner_text("[class*='content'], .operator-content, td:nth-child(2):last-of-type")
+        except Exception:
+            sms_content = "(见浏览器窗口)"
+
+        print(f"  请用手机 {phone_global} 发送短信：")
+        print(f"    收件人：{recipient.strip()}")
+        print(f"    短信内容：{sms_content.strip()}")
+        print("  发送完成后按回车继续...")
+        input()
+
+        # 点「已发送短信，下一步」
+        if done_btn and done_btn.is_visible():
+            done_btn.click()
+        else:
+            # 找所有橙色按钮中的第二个（「已发送短信」通常在「去发送短信」后面）
+            btns = login_frame.query_selector_all("button, a.btn")
+            for btn in btns:
+                txt = btn.inner_text().strip()
+                if "已发送" in txt or "下一步" in txt:
+                    btn.click()
+                    break
+
+        time.sleep(2)
+        return True
+
+    except Exception as e:
+        print(f"  运营商验证处理出错: {e}")
+        return False
+
+
+phone_global = ""   # 供 _handle_carrier_verify 访问
+
+
 def main():
+    global phone_global
+
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
     except ImportError:
-        print("请先安装 playwright：pip install playwright && python -m playwright install chromium")
+        print("请先安装：pip install playwright && python -m playwright install chromium")
         sys.exit(1)
 
     phone = input("请输入手机号（不含 +86）：").strip()
     if not phone.isdigit() or len(phone) != 11:
-        print("手机号格式不对，应为 11 位数字")
+        print("手机号格式错误")
         sys.exit(1)
+    phone_global = phone
 
-    print(f"\n[1/4] 启动 headless 浏览器，打开饿了么登录页...")
+    launch_args = {"headless": False, "slow_mo": 80}
+    if _PROXY:
+        launch_args["proxy"] = {"server": _PROXY}
+        print(f"[代理] 使用 {_PROXY}")
+
+    print("\n[1/4] 打开浏览器...")
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-dev-shm-usage"],
-            proxy={"server": "http://127.0.0.1:7890"},
-        )
-        ctx = browser.new_context(
-            viewport={"width": 390, "height": 844},
-            user_agent=UA,
-        )
+        browser = p.chromium.launch(**launch_args)
+        ctx = browser.new_context(viewport={"width": 390, "height": 844}, user_agent=UA)
         page = ctx.new_page()
 
-        # 拦截并记录 API 请求，找到 token
-        tokens: list = []
-        def on_response(resp):
-            if "restapi" in resp.url and resp.status == 200:
-                try:
-                    h = dict(resp.headers)
-                    if "set-cookie" in h:
-                        tokens.append(h["set-cookie"])
-                except Exception:
-                    pass
-        page.on("response", on_response)
-
         page.goto("https://h5.ele.me/login/", wait_until="load", timeout=30_000)
-        time.sleep(5)   # 等 iframe 渲染
+        time.sleep(4)
 
-        # 登录 form 在阿里 passport iframe 里
-        login_frame = None
-        for f in page.frames:
-            if "ipassport.ele.me" in f.url:
-                login_frame = f
-                break
-
+        # 找 ipassport iframe
+        login_frame = next(
+            (f for f in page.frames if "ipassport.ele.me" in f.url), None
+        )
         if login_frame is None:
-            page.screenshot(path="/tmp/eleme_debug.png")
-            print("  ⚠️  找不到登录 iframe，截图已存 /tmp/eleme_debug.png")
+            print("❌ 找不到登录 iframe，请截图检查")
+            input("按回车关闭...")
             browser.close()
             sys.exit(1)
 
+        # ── 填手机号 ─────────────────────────────────────────────────────
         print(f"[2/4] 填写手机号 {phone}...")
         phone_input = login_frame.wait_for_selector("#fm-sms-login-id", timeout=10_000)
         phone_input.click()
         phone_input.fill(phone)
-        print("  手机号已填入")
 
-        # 勾选「同意协议」复选框（让登录按钮从 disabled 变为可点击）
+        # 勾选协议
         try:
-            checkbox = login_frame.wait_for_selector("input[type='checkbox']", timeout=3_000)
-            if not checkbox.is_checked():
-                checkbox.click()
-                time.sleep(0.5)
+            cb = login_frame.wait_for_selector("input[type='checkbox']", timeout=3_000)
+            if not cb.is_checked():
+                cb.click()
+                time.sleep(0.3)
                 print("  已勾选协议")
         except PWTimeout:
-            pass   # 没有复选框也无妨
+            pass
 
-        # ── 截图：发送 SMS 前的状态 ────────────────────────────────────────
-        page.screenshot(path="/tmp/eleme_before_sms.png", full_page=True)
+        # 滑块（在发送前）
+        captcha = login_frame.query_selector(".nc-container, [id*='nc'][id*='captcha']")
+        if captcha and captcha.is_visible():
+            print("  发现滑块，尝试拖动...")
+            _drag_slider(login_frame, page)
 
-        # 检查是否有滑块验证码（需要先滑才能发 SMS）
-        captcha_before = login_frame.query_selector("[id*='nc'][id*='captcha'], .nc-container")
-        if captcha_before and captcha_before.is_visible():
-            print("  检测到滑块验证码，尝试自动拖动...")
-            _drag_captcha(login_frame, page)
-
-        # 点「获取验证码」（是 <a> 标签，class=send-btn-link）
+        # ── 点「获取验证码」────────────────────────────────────────────────
         sms_btn = login_frame.wait_for_selector("a.send-btn-link", timeout=5_000)
         sms_btn.click()
-        print("[3/4] 已点击「获取验证码」，请查收短信...")
+        print("[3/4] 已点击「获取验证码」，等待 3s...")
         time.sleep(3)
 
-        # 截图：发送后状态（看有没有新滑块）
-        page.screenshot(path="/tmp/eleme_after_sms.png", full_page=True)
-
-        # 再次检查滑块（有时点完发送才出现）
-        captcha_after = login_frame.query_selector("[id*='nc'][id*='captcha'], .nc-container, #nc_2_captcha_input")
-        if captcha_after and captcha_after.is_visible():
-            print("  发送后出现滑块，尝试拖动...")
-            _drag_captcha(login_frame, page)
+        # 滑块（发送后可能出现）
+        captcha2 = login_frame.query_selector(".nc-container, [id*='nc'][id*='captcha']")
+        if captcha2 and captcha2.is_visible():
+            print("  发现滑块，尝试拖动...")
+            _drag_slider(login_frame, page)
             time.sleep(2)
 
-        code = input("请输入收到的验证码：").strip()
+        # ── 判断验证方式 ──────────────────────────────────────────────────
+        # 方式 A：运营商验证（发短信）
+        carrier_handled = _handle_carrier_verify(login_frame, page)
 
-        code_input = login_frame.wait_for_selector("#fm-smscode", timeout=5_000)
-        code_input.fill(code)
-        time.sleep(1)
+        if not carrier_handled:
+            # 方式 B：普通短信验证码
+            code_input = login_frame.query_selector("#fm-smscode")
+            if code_input and code_input.is_visible():
+                code = input("请输入收到的验证码：").strip()
+                code_input.fill(code)
+                time.sleep(0.5)
+            else:
+                print("  ⚠️  未识别验证方式，请在浏览器里手动完成登录，完成后按回车...")
+                input()
 
-        # 截图：填完验证码的状态
-        page.screenshot(path="/tmp/eleme_after_code.png", full_page=True)
-
-        # 检查登录按钮状态
-        btn_state = login_frame.eval_on_selector(
-            "button.sms-login",
-            "function(b){ return {text:b.innerText, disabled:b.disabled, class:b.className} }"
-        )
-        print(f"  登录按钮状态: {btn_state}")
-
-        # 等登录按钮可点击
+        # ── 点登录按钮 ────────────────────────────────────────────────────
         try:
             login_btn = login_frame.wait_for_selector(
-                "button.sms-login:not(.fm-button-disabled)", timeout=8_000
+                "button.sms-login:not(.fm-button-disabled)", timeout=6_000
             )
+            login_btn.click()
         except PWTimeout:
-            # 按钮还是 disabled？直接尝试强制点击
-            print("  按钮仍 disabled，强制点击...")
-            login_btn = login_frame.query_selector("button.sms-login")
+            # 已经跳走了（运营商验证自动跳转），或按钮找不到
+            pass
 
-        login_btn.click(force=True)
-        time.sleep(2)
-        page.screenshot(path="/tmp/eleme_after_login_click.png", full_page=True)
-        print("  截图已保存 /tmp/eleme_after_login_click.png")
-
-        print("[4/4] 等待登录完成...")
-        # 等 ipassport 把 auth token 回传给 h5.ele.me，让它建立 session
-        # 用 networkidle 确保所有后续请求（包括 session 建立）都完成
+        # ── 等待 session 建立 ─────────────────────────────────────────────
+        print("[4/4] 等待登录完成（最多 60s）...")
         try:
-            page.wait_for_url(lambda url: "login" not in url, timeout=30_000)
-            print("  URL 已跳转:", page.url[:60])
+            page.wait_for_url(
+                lambda url: "login" not in url and "ipassport" not in url,
+                timeout=60_000,
+            )
+            print(f"  ✅ 跳转成功：{page.url[:70]}")
         except PWTimeout:
-            print("  ⚠️  30s 内 URL 未跳转，尝试强制导航到首页...")
-            # 尝试触发 auth callback：有时需要手动导航
-            page.goto("https://h5.ele.me/minisite/", wait_until="networkidle", timeout=30_000)
+            print(f"  ⚠️  超时，当前 URL：{page.url[:70]}")
+            print("  请在浏览器里手动完成剩余步骤，完成后按回车...")
+            input()
 
-        # 额外等待 session 完全建立
-        time.sleep(5)
-        page.wait_for_load_state("networkidle", timeout=15_000)
-
-        # 验证 session 是否有效（不在登录页）
-        final_url = page.url
-        print(f"  最终 URL: {final_url[:80]}")
-        if "login" in final_url:
-            print("  ⚠️  仍在登录页，session 可能未建立，尝试再等 10s...")
-            time.sleep(10)
-            final_url = page.url
-            print(f"  再次检查 URL: {final_url[:80]}")
-
-        # 用页面内置 fetch 验证 session 是否真的有效
+        # 确保 networkidle（等所有 cookie 写入）
         try:
-            session_ok = page.evaluate("""
+            page.wait_for_load_state("networkidle", timeout=10_000)
+        except Exception:
+            pass
+        time.sleep(3)
+
+        # ── 验证 session ──────────────────────────────────────────────────
+        try:
+            check = page.evaluate("""
             async () => {
-                try {
-                    const r = await fetch('/restapi/eus/v2/new_user_check', {credentials:'include'});
-                    return {status: r.status, ok: r.ok};
-                } catch(e) { return {error: e.toString()}; }
+                const r = await fetch('/restapi/eus/v2/new_user_check', {credentials:'include'});
+                return {status: r.status, url: location.href};
             }
             """)
-            print(f"  Session 验证: {session_ok}")
+            print(f"  Session 检查: status={check.get('status')}  url={check.get('url','')[:60]}")
         except Exception:
             pass
 
-        # 保存 Cookie
+        # ── 保存 Cookie ───────────────────────────────────────────────────
         cookies = ctx.cookies()
         try:
-            storage = page.evaluate("() => JSON.stringify(Object.fromEntries(Object.entries(localStorage)))")
-            local_storage = json.loads(storage)
+            ls = page.evaluate(
+                "() => JSON.stringify(Object.fromEntries(Object.entries(localStorage)))"
+            )
+            local_storage = json.loads(ls)
         except Exception:
             local_storage = {}
 
-        result = {
+        OUTPUT.write_text(json.dumps({
             "cookies": cookies,
             "local_storage": local_storage,
             "headers": {
@@ -261,12 +302,13 @@ def main():
                 "Referer": "https://h5.ele.me/",
                 "Accept-Language": "zh-CN,zh;q=0.9",
             },
-        }
-        OUTPUT.write_text(json.dumps(result, ensure_ascii=False, indent=2))
-        print(f"\n✅ Cookie 已保存：{OUTPUT}（共 {len(cookies)} 条）")
-        if len(cookies) < 3:
-            print("  ⚠️  Cookie 数量很少，登录可能未成功，请检查截图 /tmp/eleme_debug*.png")
+        }, ensure_ascii=False, indent=2))
 
+        print(f"\n✅ Cookie 已保存：{OUTPUT}（共 {len(cookies)} 条）")
+        if len(cookies) < 5:
+            print("  ⚠️  Cookie 数量偏少，登录可能不完整")
+
+        input("按回车关闭浏览器...")
         browser.close()
 
 
