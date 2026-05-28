@@ -18,24 +18,59 @@ _LLM_CACHE_PREFIX = "llm:food:"
 
 # ── SQLite FTS 搜索 ──────────────────────────────────────────────────────────
 
+def _contains_chinese(s: str) -> bool:
+    return any('一' <= c <= '鿿' for c in s)
+
+
 async def search_food_db(query: str, limit: int = 10) -> List[FoodItem]:
-    """用 FTS5 在本地食物数据库中搜索。"""
+    """
+    用 FTS5 + LIKE 在本地食物数据库中搜索。
+    中文查询用逐字 AND（FTS5 unicode61 按字符切词）；英文用前缀搜索。
+    如果 FTS 无结果则退而用 LIKE 模糊匹配。
+    """
     conn = get_sqlite()
-    # FTS5 MATCH 支持前缀搜索 (token*)
-    fts_query = " OR ".join(f"{t}*" for t in query.strip().split()) or query
-    rows = await conn.execute_fetchall(
-        """
-        SELECT fi.food_id, fi.name_zh, fi.name_en, fi.name_pinyin,
-               fi.calories_per_100g, fi.protein_g, fi.fat_g, fi.carb_g,
-               fi.sodium_mg, fi.fiber_g, fi.diet_labels
-        FROM food_fts
-        JOIN food_items fi ON fi.food_id = food_fts.rowid
-        WHERE food_fts MATCH ?
-        ORDER BY rank
-        LIMIT ?
-        """,
-        (fts_query, limit),
-    )
+    q = query.strip()
+
+    if _contains_chinese(q):
+        # 中文：每个字符独立作为一个 AND 条件，提高精度
+        chars = [c for c in q if not c.isspace()]
+        fts_query = " AND ".join(chars) if chars else q
+    else:
+        # 英文：按空格分词，前缀搜索
+        tokens = q.split()
+        fts_query = " OR ".join(f"{t}*" for t in tokens) if tokens else q
+
+    try:
+        rows = await conn.execute_fetchall(
+            """
+            SELECT fi.id, fi.name_zh, fi.name_en, fi.name_pinyin,
+                   fi.calories, fi.protein_g, fi.fat_g, fi.carb_g,
+                   fi.sodium_mg, fi.fiber_g, fi.diet_labels
+            FROM food_fts
+            JOIN food_items fi ON fi.id = food_fts.rowid
+            WHERE food_fts MATCH ?
+            ORDER BY rank
+            LIMIT ?
+            """,
+            (fts_query, limit),
+        )
+    except Exception:
+        rows = []
+
+    # Fallback: LIKE 模糊匹配（捕获 FTS 未能命中的情况）
+    if not rows:
+        like_q = f"%{q}%"
+        rows = await conn.execute_fetchall(
+            """
+            SELECT id, name_zh, name_en, name_pinyin,
+                   calories, protein_g, fat_g, carb_g,
+                   sodium_mg, fiber_g, diet_labels
+            FROM food_items
+            WHERE name_zh LIKE ? OR name_en LIKE ? OR name_pinyin LIKE ?
+            LIMIT ?
+            """,
+            (like_q, like_q, like_q, limit),
+        )
     results: List[FoodItem] = []
     for r in rows:
         try:
@@ -48,12 +83,12 @@ async def search_food_db(query: str, limit: int = 10) -> List[FoodItem]:
                 name_zh=r[1],
                 name_en=r[2],
                 name_pinyin=r[3],
-                calories_per_100g=r[4],
-                protein_g=r[5],
-                fat_g=r[6],
-                carb_g=r[7],
-                sodium_mg=r[8],
-                fiber_g=r[9],
+                calories=float(r[4] or 0),
+                protein_g=float(r[5] or 0),
+                fat_g=float(r[6] or 0),
+                carb_g=float(r[7] or 0),
+                sodium_mg=float(r[8]) if r[8] is not None else None,
+                fiber_g=float(r[9]) if r[9] is not None else None,
                 diet_labels=diet_labels,
             )
         )
@@ -123,13 +158,15 @@ async def _query_llm(food_name: str) -> Optional[FoodItem]:
         name_zh=data.get("name_zh", food_name),
         name_en=data.get("name_en"),
         name_pinyin=data.get("name_pinyin"),
-        calories_per_100g=float(data.get("calories_per_100g", 0)),
+        calories=float(data.get("calories_per_100g") or data.get("calories") or 0),
         protein_g=float(data.get("protein_g", 0)),
         fat_g=float(data.get("fat_g", 0)),
         carb_g=float(data.get("carb_g", 0)),
         sodium_mg=float(data.get("sodium_mg", 0)),
         fiber_g=float(data.get("fiber_g", 0)),
         diet_labels=data.get("diet_labels", []),
+        source="llm_inferred",
+        verified=False,
     )
 
     # 写入 Redis 缓存（7天），key 存的是 dict（food_id 为 None）
@@ -177,7 +214,7 @@ async def confirm_and_store(item: FoodItem) -> FoodItem:
     cursor = await conn.execute(
         """
         INSERT INTO food_items
-            (name_zh, name_en, name_pinyin, calories_per_100g,
+            (name_zh, name_en, name_pinyin, calories,
              protein_g, fat_g, carb_g, sodium_mg, fiber_g, diet_labels, verified)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         """,
@@ -185,7 +222,7 @@ async def confirm_and_store(item: FoodItem) -> FoodItem:
             item.name_zh,
             item.name_en,
             item.name_pinyin,
-            item.calories_per_100g,
+            item.calories,
             item.protein_g,
             item.fat_g,
             item.carb_g,
@@ -203,9 +240,9 @@ async def confirm_and_store(item: FoodItem) -> FoodItem:
 async def get_food_by_id(food_id: int) -> Optional[FoodItem]:
     conn = get_sqlite()
     rows = await conn.execute_fetchall(
-        "SELECT food_id, name_zh, name_en, name_pinyin, calories_per_100g, "
+        "SELECT id, name_zh, name_en, name_pinyin, calories, "
         "protein_g, fat_g, carb_g, sodium_mg, fiber_g, diet_labels "
-        "FROM food_items WHERE food_id = ?",
+        "FROM food_items WHERE id = ?",
         (food_id,),
     )
     if not rows:
@@ -217,6 +254,9 @@ async def get_food_by_id(food_id: int) -> Optional[FoodItem]:
         diet_labels = []
     return FoodItem(
         food_id=r[0], name_zh=r[1], name_en=r[2], name_pinyin=r[3],
-        calories_per_100g=r[4], protein_g=r[5], fat_g=r[6], carb_g=r[7],
-        sodium_mg=r[8], fiber_g=r[9], diet_labels=diet_labels,
+        calories=float(r[4] or 0), protein_g=float(r[5] or 0),
+        fat_g=float(r[6] or 0), carb_g=float(r[7] or 0),
+        sodium_mg=float(r[8]) if r[8] is not None else None,
+        fiber_g=float(r[9]) if r[9] is not None else None,
+        diet_labels=diet_labels,
     )

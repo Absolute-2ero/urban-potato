@@ -27,6 +27,7 @@ class Config(BaseSettings):
 
     # 高德地图
     gaode_api_key: str = ""
+    gaode_security_key: str = ""
 
     # Session
     session_secret: str = "dev-secret-change-in-production-please"

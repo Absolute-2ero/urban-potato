@@ -43,15 +43,23 @@ def _build_es_query(
     filter_clauses: List[Dict] = []
 
     # ── 全文 BM25 ────────────────────────────────────────────────────────────
+    # 每个 token（含同义词）独立构成一个 should 子句，最少匹配 1 个即可命中
     if tokens:
-        query_text = " ".join(tokens)
-        must_clauses.append(
+        should_clauses = [
             {
                 "multi_match": {
-                    "query": query_text,
+                    "query": tok,
                     "fields": ["name^3", "description^2", "cuisine_type", "address"],
                     "type": "best_fields",
-                    "minimum_should_match": "60%",
+                }
+            }
+            for tok in tokens
+        ]
+        must_clauses.append(
+            {
+                "bool": {
+                    "should": should_clauses,
+                    "minimum_should_match": 1,
                 }
             }
         )
@@ -196,12 +204,22 @@ async def search(
         sort_mode=params.sort_mode,
     )
 
-    # ── 7. 组装响应 ───────────────────────────────────────────────────────────
+    # ── 7. 展平 _source 字段 ────────────────────────────────────────────────────
+    flat_hits: List[Dict[str, Any]] = []
+    for hit in reranked:
+        source = hit.get("_source", {})
+        flat = dict(source)
+        flat["_score"] = hit.get("_score")
+        flat["_final_score"] = hit.get("_final_score", hit.get("_score"))
+        flat["_allergen_warning"] = hit.get("_allergen_warning", [])
+        flat_hits.append(flat)
+
+    # ── 8. 组装响应 ───────────────────────────────────────────────────────────
     facets = _parse_facets(aggs)
 
     return SearchResponse(
         total=total,
-        hits=reranked,
+        hits=flat_hits,
         facets=facets,
         spell_suggestion=spell_suggestion,
         detected_diet_labels=detected_diet_labels,

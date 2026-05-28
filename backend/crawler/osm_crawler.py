@@ -10,6 +10,7 @@ OpenStreetMap Overpass API 爬虫（免费、无需 API key、完全合法）。
 import asyncio
 import logging
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlencode
 
 import httpx
 
@@ -98,11 +99,12 @@ out body center;
 async def _query_overpass(ql: str) -> List[Dict[str, Any]]:
     """逐个尝试 Overpass 镜像，第一个成功即返回。"""
     _HEADERS = {
-        "Accept": "*/*",
+        "Accept": "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
         "User-Agent": "DietSearch/1.0 (IR research project; contact: research@example.com)",
     }
-    encoded_data = f"data={ql}"
+    # Must URL-encode the query parameter value (same as curl --data-urlencode)
+    encoded_data = urlencode({"data": ql})
 
     for endpoint in _OVERPASS_ENDPOINTS:
         for attempt in range(2):

@@ -51,13 +51,7 @@ _DEFAULT_MAPPING: Dict[str, Any] = {
             "price_level":    {"type": "integer"},
             "rating":         {"type": "float"},
             "rating_count":   {"type": "integer"},
-            "geo": {
-                "type": "geo_point",
-                "properties": {
-                    "lat": {"type": "double"},
-                    "lng": {"type": "double"},
-                },
-            },
+            "geo": {"type": "geo_point"},
             "diet_labels":    {"type": "keyword"},
             "allergens":      {"type": "keyword"},
             "allergen_free":  {"type": "keyword"},
