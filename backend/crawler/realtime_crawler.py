@@ -61,42 +61,63 @@ async def _set_lock(key: str) -> None:
 
 # ── 核心爬取逻辑 ──────────────────────────────────────────────────────────────
 
+def _eleme_available() -> bool:
+    """检查饿了么 Cookie 文件是否存在。"""
+    from pathlib import Path
+    return (Path(__file__).parent / "eleme_cookies.json").exists()
+
+
 async def _fetch_docs(
     query: str,
     lat: Optional[float],
     lng: Optional[float],
 ) -> List[dict]:
     """
-    按优先级获取原始文档：
-      有坐标 → 高德周边 / OSM 周边
-      无坐标 → 高德关键词（北京） / OSM 城市
+    数据源优先级：
+      1. 饿了么（有 Cookie 时，含真实菜单数据）
+      2. 高德官方 API（有 Key 时，含评分/地址）
+      3. OSM Overpass（无条件 fallback）
     """
     docs: List[dict] = []
 
     if lat is not None and lng is not None:
-        # ── 周边搜索 ──────────────────────────────────────────────────────
-        if cfg.gaode_api_key:
-            from crawler.gaode_crawler import search_around as gaode_around
-            docs = await gaode_around(lat, lng, keyword=query, radius_m=5000, max_pages=3)
-            logger.info("Gaode around → %d docs", len(docs))
+        # ── 有坐标：周边搜索 ──────────────────────────────────────────────
+        if _eleme_available():
+            from crawler.eleme_crawler import crawl_around as eleme_around
+            docs = await eleme_around(lat, lng, keyword=query, radius_m=5000, fetch_menu=True)
+            logger.info("Eleme around → %d docs (with menu)", len(docs))
 
-        if len(docs) < 5:       # 高德不足时用 OSM 补充
+        if len(docs) < 5 and cfg.gaode_api_key:
+            from crawler.gaode_crawler import search_around as gaode_around
+            gaode = await gaode_around(lat, lng, keyword=query, radius_m=5000, max_pages=3)
+            existing = {d["restaurant_id"] for d in docs}
+            docs += [d for d in gaode if d["restaurant_id"] not in existing]
+            logger.info("Gaode around supplement → total %d docs", len(docs))
+
+        if len(docs) < 5:
             osm = await osm_crawl_around(lat, lng, radius_m=5000, keyword=query or None)
-            existing_ids = {d["restaurant_id"] for d in docs}
-            docs += [d for d in osm if d["restaurant_id"] not in existing_ids]
+            existing = {d["restaurant_id"] for d in docs}
+            docs += [d for d in osm if d["restaurant_id"] not in existing]
             logger.info("OSM around supplement → total %d docs", len(docs))
 
     else:
-        # ── 关键词搜索（默认北京）────────────────────────────────────────
-        if cfg.gaode_api_key:
+        # ── 无坐标：关键词搜索（北京）────────────────────────────────────
+        if _eleme_available():
+            from crawler.eleme_crawler import crawl_by_keyword as eleme_kw
+            docs = await eleme_kw(query, pages=2, fetch_menu=True)
+            logger.info("Eleme keyword=%r → %d docs (with menu)", query, len(docs))
+
+        if len(docs) < 5 and cfg.gaode_api_key:
             from crawler.gaode_crawler import search_by_keyword
-            docs = await search_by_keyword(query, city="北京", max_pages=3)
-            logger.info("Gaode keyword=%r → %d docs", query, len(docs))
+            gaode = await search_by_keyword(query, city="北京", max_pages=3)
+            existing = {d["restaurant_id"] for d in docs}
+            docs += [d for d in gaode if d["restaurant_id"] not in existing]
+            logger.info("Gaode keyword supplement → total %d docs", len(docs))
 
         if len(docs) < 5:
             osm = await crawl_city_osm("beijing", keyword=query or None)
-            existing_ids = {d["restaurant_id"] for d in docs}
-            docs += [d for d in osm if d["restaurant_id"] not in existing_ids]
+            existing = {d["restaurant_id"] for d in docs}
+            docs += [d for d in osm if d["restaurant_id"] not in existing]
             logger.info("OSM city supplement → total %d docs", len(docs))
 
     return docs[:_REALTIME_MAX]
@@ -169,21 +190,45 @@ _BATCH_CITIES = ["beijing", "shanghai", "guangzhou", "shenzhen", "chengdu", "han
 async def batch_crawl_city(city: str, keywords: Optional[List[str]] = None) -> int:
     """
     定时批量爬一个城市。
-    优先使用高德 API（数据更丰富），fallback 到 OSM。
+    优先级：饿了么（有菜单）> 高德（有评分）> OSM（fallback）。
     """
     keywords = keywords or _BATCH_KEYWORDS
     total = 0
 
-    if cfg.gaode_api_key:
-        # ── 高德批量 ──────────────────────────────────────────────────────
+    # ── 饿了么批量（有 Cookie 时，逐关键词获取菜单数据）─────────────────
+    if _eleme_available():
+        from crawler.eleme_crawler import crawl_by_keyword as eleme_kw
+        # 城市中心坐标（目前只做北京）
+        city_coords = {
+            "beijing":   (39.9042, 116.4074),
+            "shanghai":  (31.2304, 121.4737),
+            "guangzhou": (23.1291, 113.2644),
+            "shenzhen":  (22.5431, 114.0579),
+            "chengdu":   (30.5728, 104.0668),
+            "hangzhou":  (30.2741, 120.1551),
+        }
+        lat, lng = city_coords.get(city.lower(), (39.9042, 116.4074))
+        for kw in keywords:
+            docs = await eleme_kw(kw, city_lat=lat, city_lng=lng, pages=2, fetch_menu=True)
+            if docs:
+                labeled = label_batch(docs)
+                n = await bulk_index(labeled)
+                total += n
+                logger.info("Eleme batch city=%s kw=%r → %d (with menu)", city, kw, n)
+            await asyncio.sleep(2.0)
+
+    # ── 高德补充（没饿了么数据或量不足时）───────────────────────────────
+    if (not _eleme_available() or total < 10) and cfg.gaode_api_key:
         from crawler.gaode_crawler import crawl_city
         docs = await crawl_city(city, keywords=keywords, max_pages_per_kw=5)
         if docs:
             labeled = label_batch(docs)
-            total = await bulk_index(labeled)
-            logger.info("Gaode batch city=%s → %d indexed", city, total)
-    else:
-        # ── OSM 批量（逐关键词，有 Redis 锁保护）─────────────────────────
+            n = await bulk_index(labeled)
+            total += n
+            logger.info("Gaode batch city=%s → %d indexed", city, n)
+
+    # ── OSM fallback ─────────────────────────────────────────────────────
+    if total == 0:
         for kw in keywords:
             key = _lock_key(kw, None, None)
             if await _is_locked(key):
