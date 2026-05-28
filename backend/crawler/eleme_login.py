@@ -167,10 +167,18 @@ def main():
         sys.exit(1)
     phone_global = phone
 
-    launch_args = {"headless": False, "slow_mo": 80}
+    # 有代理（服务器环境）用 headless=True；本机无代理用 headless=False
+    headless = bool(_PROXY)
+    launch_args = {
+        "headless": headless,
+        "slow_mo": 80,
+        "args": ["--no-sandbox", "--disable-dev-shm-usage"],
+    }
     if _PROXY:
         launch_args["proxy"] = {"server": _PROXY}
-        print(f"[代理] 使用 {_PROXY}")
+        print(f"[代理] 使用 {_PROXY}，headless=True")
+    else:
+        print("[本机] headless=False，将弹出浏览器窗口")
 
     print("\n[1/4] 打开浏览器...")
 
