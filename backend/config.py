@@ -37,6 +37,7 @@ class Config(BaseSettings):
 
     # IR
     ranking_config_path: str = "config/ranking.yaml"
+    cities_config_path: str = "config/cities.yaml"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
@@ -51,3 +52,14 @@ def get_config() -> Config:
 
 
 cfg = get_config()
+
+
+def load_cities() -> list[dict]:
+    """Return the list of cities from cities.yaml. Each entry has id, label, center {lat, lng}."""
+    import yaml
+    path = cfg.cities_config_path
+    if not os.path.exists(path):
+        return [{"id": "beijing", "label": "北京", "center": {"lat": 39.9042, "lng": 116.4074}}]
+    with open(path, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    return data.get("cities", [])

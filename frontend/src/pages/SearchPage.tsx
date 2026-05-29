@@ -20,13 +20,22 @@ function countMatchingDishes(r: Restaurant, dietLabels: DietLabel[], q: string):
   if (!r.menu_items?.length) return 0
   return r.menu_items.filter((item) => {
     const labelMatch = dietLabels.length > 0 && item.diet_labels?.some((d) => dietLabels.includes(d))
-    const nameMatch = q.length > 0 && item.name.toLowerCase().includes(q.toLowerCase())
+    const nameMatch = q.length > 0 && item.name?.toLowerCase().includes(q.toLowerCase())
     return labelMatch || nameMatch
   }).length
 }
 
 export default function SearchPage() {
   const { q, dietLabels, priceLevels, sortMode, offset, limit, push } = useSearchSync()
+
+  // Remember last search URL so Discover tab can return here.
+  // Only save when there are actual search params to avoid overwriting with a bare '/search'.
+  useEffect(() => {
+    const search = window.location.search
+    if (search) {
+      sessionStorage.setItem('lastSearchUrl', '/search' + search)
+    }
+  }, [q, dietLabels, priceLevels, sortMode])
   const {
     results, total, facets, loading, error,
     spellSuggestion, detectedDietLabels, crawlTriggered,
@@ -197,8 +206,8 @@ export default function SearchPage() {
           <div style={{ marginBottom: 10 }}>
             <SearchBar
               value={q}
-              onChange={(val) => push({ q: val })}
               onSearch={(val) => push({ q: val, offset: 0 })}
+              city={selectedCity ?? undefined}
             />
           </div>
           {/* 6 filter groups (no location) */}

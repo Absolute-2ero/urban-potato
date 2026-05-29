@@ -1,0 +1,24 @@
+cities:
+  - id: hongkong
+    label: 香港
+    center:
+      lat: 22.3193
+      lng: 114.1694
+
+  - id: beijing
+    label: 北京
+    center:
+      lat: 39.9042
+      lng: 116.4074
+
+  # Add more cities here and re-run the pipeline:
+  # - id: shanghai
+  #   label: 上海
+  #   center:
+  #     lat: 31.2304
+  #     lng: 121.4737
+  # - id: guangzhou
+  #   label: 广州
+  #   center:
+  #     lat: 23.1291
+  #     lng: 113.2644

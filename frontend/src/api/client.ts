@@ -16,9 +16,9 @@ client.interceptors.response.use(
     if (status === 401) {
       // 未登录，不弹 toast（由各页面自行处理）
     } else if (status >= 500) {
-      message.error(`服务器错误：${detail}`)
+      message.error(`Server error: ${detail}`)
     } else if (status === 422) {
-      message.error(`请求参数有误：${detail}`)
+      message.error(`Invalid request: ${detail}`)
     }
 
     return Promise.reject(err)

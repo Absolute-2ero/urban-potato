@@ -1,66 +1,60 @@
 import type { DietLabel } from '@/types'
 
-// ── 饮食标签元数据 ────────────────────────────────────────────────────────────
 export const DIET_LABEL_META: Record<
   DietLabel,
   { label: string; color: string; emoji: string }
 > = {
-  vegan:        { label: '纯素',   color: '#2D9B5A', emoji: '🌿' },
-  vegetarian:   { label: '素食',   color: '#52C41A', emoji: '🥗' },
-  halal:        { label: '清真',   color: '#13C2C2', emoji: '☪️' },
-  kosher:       { label: '犹太洁食', color: '#722ED1', emoji: '✡️' },
-  organic:      { label: '有机',   color: '#73D13D', emoji: '🌱' },
-  'gluten-free':{ label: '无麸质', color: '#FA8C16', emoji: '🌾' },
-  'dairy-free': { label: '无乳制品', color: '#FFC53D', emoji: '🥛' },
-  keto:         { label: '生酮',   color: '#F759AB', emoji: '🥑' },
-  'high-protein': { label: '高蛋白', color: '#1677FF', emoji: '💪' },
-  'low-carb':   { label: '低碳水', color: '#40A9FF', emoji: '🍞' },
-  'low-calorie':{ label: '低卡',   color: '#69B1FF', emoji: '🔥' },
-  'low-sodium': { label: '低钠',   color: '#95DE64', emoji: '🧂' },
-  'nut-free':   { label: '无坚果', color: '#FF7A45', emoji: '🥜' },
-  'shellfish-free': { label: '无贝类', color: '#36CFC9', emoji: '🦞' },
-  'soy-free':   { label: '无大豆', color: '#B7EB8F', emoji: '🫘' },
+  vegan:           { label: 'Vegan',         color: '#2D9B5A', emoji: '🌿' },
+  vegetarian:      { label: 'Vegetarian',    color: '#52C41A', emoji: '🥗' },
+  halal:           { label: 'Halal',         color: '#13C2C2', emoji: '☪️' },
+  kosher:          { label: 'Kosher',        color: '#722ED1', emoji: '✡️' },
+  organic:         { label: 'Organic',       color: '#73D13D', emoji: '🌱' },
+  'gluten-free':   { label: 'Gluten-free',   color: '#FA8C16', emoji: '🌾' },
+  'dairy-free':    { label: 'Dairy-free',    color: '#FFC53D', emoji: '🥛' },
+  keto:            { label: 'Keto',          color: '#F759AB', emoji: '🥑' },
+  'high-protein':  { label: 'High-protein',  color: '#1677FF', emoji: '💪' },
+  'low-carb':      { label: 'Low-carb',      color: '#40A9FF', emoji: '🍞' },
+  'low-calorie':   { label: 'Low-calorie',   color: '#69B1FF', emoji: '🔥' },
+  'low-sodium':    { label: 'Low-sodium',    color: '#95DE64', emoji: '🧂' },
+  'nut-free':      { label: 'Nut-free',      color: '#FF7A45', emoji: '🥜' },
+  'shellfish-free':{ label: 'Shellfish-free',color: '#36CFC9', emoji: '🦞' },
+  'soy-free':      { label: 'Soy-free',      color: '#B7EB8F', emoji: '🫘' },
 }
 
 export const ALL_DIET_LABELS = Object.keys(DIET_LABEL_META) as DietLabel[]
 
-// ── 价格档次 ──────────────────────────────────────────────────────────────────
 export const PRICE_LEVEL_META: Record<number, { label: string; icon: string }> = {
-  1: { label: '¥ 经济', icon: '¥' },
-  2: { label: '¥¥ 实惠', icon: '¥¥' },
-  3: { label: '¥¥¥ 中档', icon: '¥¥¥' },
-  4: { label: '¥¥¥¥ 高档', icon: '¥¥¥¥' },
+  1: { label: '$ Budget',      icon: '$' },
+  2: { label: '$$ Moderate',   icon: '$$' },
+  3: { label: '$$$ Pricey',    icon: '$$$' },
+  4: { label: '$$$$ Fine dining', icon: '$$$$' },
 }
 
-// ── 排序模式 ──────────────────────────────────────────────────────────────────
 export const SORT_MODES = [
-  { value: 'default',       label: '综合排序' },
-  { value: 'diet_first',    label: '饮食匹配优先' },
-  { value: 'rating_first',  label: '评分优先' },
-  { value: 'distance_first',label: '距离优先' },
+  { value: 'default',        label: 'Best match' },
+  { value: 'diet_first',     label: 'Diet match first' },
+  { value: 'rating_first',   label: 'Highest rated' },
+  { value: 'distance_first', label: 'Nearest first' },
 ]
 
-// ── 过敏原选项 ────────────────────────────────────────────────────────────────
 export const COMMON_ALLERGENS = [
-  { value: 'peanut',    label: '花生' },
-  { value: 'tree_nut',  label: '坚果' },
-  { value: 'dairy',     label: '乳制品' },
-  { value: 'gluten',    label: '麸质/小麦' },
-  { value: 'shellfish', label: '贝类/海鲜' },
-  { value: 'soy',       label: '大豆' },
-  { value: 'egg',       label: '鸡蛋' },
-  { value: 'sesame',    label: '芝麻' },
+  { value: 'peanut',    label: 'Peanut' },
+  { value: 'tree_nut',  label: 'Tree nut' },
+  { value: 'dairy',     label: 'Dairy' },
+  { value: 'gluten',    label: 'Gluten / Wheat' },
+  { value: 'shellfish', label: 'Shellfish' },
+  { value: 'soy',       label: 'Soy' },
+  { value: 'egg',       label: 'Egg' },
+  { value: 'sesame',    label: 'Sesame' },
 ]
 
-// ── 膳食类型 ──────────────────────────────────────────────────────────────────
 export const MEAL_TYPES = [
-  { value: 'breakfast', label: '早餐' },
-  { value: 'lunch',     label: '午餐' },
-  { value: 'dinner',    label: '晚餐' },
-  { value: 'snack',     label: '加餐' },
+  { value: 'breakfast', label: 'Breakfast' },
+  { value: 'lunch',     label: 'Lunch' },
+  { value: 'dinner',    label: 'Dinner' },
+  { value: 'snack',     label: 'Snack' },
 ]
 
-// ── 主题色 ────────────────────────────────────────────────────────────────────
 export const PRIMARY_COLOR = '#2D9B5A'
 export const DANGER_COLOR  = '#FF4D4F'
 export const WARNING_COLOR = '#FAAD14'

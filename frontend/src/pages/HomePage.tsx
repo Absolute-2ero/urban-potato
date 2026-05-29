@@ -15,17 +15,11 @@ import type { DietLabel } from '@/types'
 const { Title, Text } = Typography
 
 const FALLBACK_CITY: City = {
-  id: 'beijing',
-  label: '北京',
-  center: { lat: 39.9042, lng: 116.4074 },
+  id: 'hongkong',
+  label: 'Hong Kong',
+  center: { lat: 22.3193, lng: 114.1694 },
 }
 
-const FEATURE_CARDS = [
-  { emoji: '🔍', title: 'Diet-aware search', desc: 'Find restaurants matching your dietary needs — vegan, halal, gluten-free, and more.', bg: '#E8F5E9', accent: '#2D9B5A' },
-  { emoji: '⚠️', title: 'Allergen alerts', desc: "Real-time allergen warnings so you never have to guess what's in your food.", bg: '#FFF0F0', accent: '#E85454' },
-  { emoji: '📊', title: 'Nutrition tracking', desc: 'Log your meals, track calories and macros, and hit your daily goals.', bg: '#E3F2FD', accent: '#1565C0' },
-  { emoji: '✨', title: 'Personalised results', desc: 'Set your preferences once and every search automatically fits you.', bg: '#F3E5F5', accent: '#6A1B9A' },
-]
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -190,53 +184,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Feature cards */}
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px 24px' }}>
-        <Text style={{ fontSize: 11, color: '#AAB4B4', textTransform: 'uppercase', letterSpacing: 1.2, display: 'block', marginBottom: 14, fontWeight: 600 }}>
-          What MacroBite does
-        </Text>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }}>
-          {FEATURE_CARDS.map((card) => (
-            <div
-              key={card.title}
-              style={{ background: card.bg, borderRadius: 14, padding: '20px 18px', border: `1px solid ${card.accent}20` }}
-            >
-              <div style={{ fontSize: 28, marginBottom: 10 }}>{card.emoji}</div>
-              <Text strong style={{ color: card.accent, fontSize: 14, display: 'block', marginBottom: 6 }}>{card.title}</Text>
-              <Text style={{ color: '#6B7A7A', fontSize: 13, lineHeight: 1.55 }}>{card.desc}</Text>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* About section */}
-      <div
-        style={{
-          background: 'rgba(59,191,191,0.07)', borderTop: '1px solid rgba(59,191,191,0.18)',
-          padding: '32px 24px', textAlign: 'center',
-        }}
-      >
-        <div style={{ maxWidth: 580, margin: '0 auto' }}>
-          <Text strong style={{ fontSize: 16, color: '#1E2A2A', display: 'block', marginBottom: 12 }}>
-            About MacroBite
-          </Text>
-          <Text style={{ color: '#6B7A7A', fontSize: 14, lineHeight: 1.75, display: 'block', marginBottom: 20 }}>
-            MacroBite helps you find restaurants that actually fit your diet — whether you're vegan,
-            avoiding allergens, hitting a protein goal, or just curious about what you're eating.
-            Search any restaurant or cuisine, filter by your dietary needs, and track your daily
-            nutrition all in one place.
-          </Text>
-          {!user && (
-            <Button
-              type="primary" size="large"
-              onClick={() => navigate('/login')}
-              style={{ background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, borderRadius: 999, padding: '0 32px' }}
-            >
-              Get started — it's free
-            </Button>
-          )}
-        </div>
-      </div>
     </div>
   )
 }

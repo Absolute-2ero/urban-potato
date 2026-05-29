@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Button, Input, InputNumber, Modal, Segmented, Spin, Typography, message } from 'antd'
+import { Button, DatePicker, Input, InputNumber, Modal, Segmented, Spin, Typography, message } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
+import type { Dayjs } from 'dayjs'
 import { searchFood } from '@/api/food'
 import { addLog } from '@/api/diet'
 import { PRIMARY_COLOR } from '@/constants'
@@ -44,6 +45,7 @@ interface Props {
 export function AddLogModal({ open, logDate, defaultMeal, prefill, onClose, onAdded }: Props) {
   const [mode, setMode] = useState<'search' | 'manual'>(prefill ? 'manual' : 'search')
   const [meal, setMeal] = useState<MealType>(defaultMeal ?? autoMealType())
+  const [selectedDate, setSelectedDate] = useState<string>(dayjs().format('YYYY-MM-DD'))
 
   // Search mode state
   const [searchQ, setSearchQ] = useState('')
@@ -65,6 +67,7 @@ export function AddLogModal({ open, logDate, defaultMeal, prefill, onClose, onAd
 
   useEffect(() => {
     if (open) {
+      setSelectedDate(dayjs().format('YYYY-MM-DD'))
       setMeal(defaultMeal ?? autoMealType())
       setPicked(null)
       setResults([])
@@ -118,7 +121,7 @@ export function AddLogModal({ open, logDate, defaultMeal, prefill, onClose, onAd
         await addLog({
           food_id: picked.food_id,
           food_name_snapshot: picked.name_zh,
-          log_date: logDate,
+          log_date: selectedDate,
           meal_type: meal,
           amount_g: amountG,
           ...scaledMacros,
@@ -128,7 +131,7 @@ export function AddLogModal({ open, logDate, defaultMeal, prefill, onClose, onAd
         if (!name.trim()) { message.warning('Please enter a dish name'); return }
         await addLog({
           food_name_snapshot: name.trim(),
-          log_date: logDate,
+          log_date: selectedDate,
           meal_type: meal,
           amount_g: portionG,
           calories,
@@ -164,6 +167,19 @@ export function AddLogModal({ open, logDate, defaultMeal, prefill, onClose, onAd
         <Text strong style={{ fontSize: 16 }}>Log a meal</Text>
       }
     >
+      {/* Date picker */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, padding: '10px 12px', background: '#F7F3EE', borderRadius: 10 }}>
+        <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.5 }}>DATE</Text>
+        <DatePicker
+          value={dayjs(selectedDate)}
+          onChange={(d: Dayjs | null) => { if (d) setSelectedDate(d.format('YYYY-MM-DD')) }}
+          disabledDate={(d) => d.isAfter(dayjs(), 'day')}
+          allowClear={false}
+          style={{ flex: 1 }}
+          format="ddd, MMM D, YYYY"
+        />
+      </div>
+
       {/* Meal type selector */}
       <div style={{ marginBottom: 16 }}>
         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>MEAL</Text>

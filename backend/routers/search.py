@@ -61,8 +61,9 @@ async def search(
 async def autocomplete(
     prefix: str = Query(..., min_length=1, max_length=100),
     size: int = Query(8, ge=1, le=20),
+    city: Optional[str] = Query(None),
 ) -> List[str]:
-    return await search_service.autocomplete(prefix, size=size)
+    return await search_service.autocomplete(prefix, size=size, city=city)
 
 
 @router.post("/trigger-crawl")

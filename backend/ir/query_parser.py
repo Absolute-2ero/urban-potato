@@ -50,6 +50,7 @@ class ParsedQuery:
     tokens: List[str]
     expanded_tokens: List[str]         # 含同义词扩展后的词列表
     detected_diet_labels: List[str]    # 从查询中识别出的规范饮食标签
+    free_text_tokens: List[str] = field(default_factory=list)  # tokens not resolved to diet labels
     spell_corrected: bool = False
     spell_suggestion: Optional[str] = None
     sort_mode: str = "default"
@@ -75,6 +76,7 @@ class QueryParser:
         # ── 同义词扩展 + 饮食标签识别 ────────────────────────────────────────
         detected_labels: List[str] = []
         expanded: List[str] = []
+        free_text: List[str] = []
         seen_canonical: Set[str] = set()
 
         for token in tokens:
@@ -87,6 +89,7 @@ class QueryParser:
                     expanded.extend(all_syns)
             else:
                 expanded.append(token)
+                free_text.append(token)
 
         # 去重保序
         seen: Set[str] = set()
@@ -102,5 +105,6 @@ class QueryParser:
             tokens=tokens,
             expanded_tokens=unique_expanded,
             detected_diet_labels=list(dict.fromkeys(detected_labels)),
+            free_text_tokens=free_text,
             sort_mode=sort_mode,
         )

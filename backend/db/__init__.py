@@ -15,6 +15,46 @@ _FOOD_SEED_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "food_se
 async def init_sqlite_schema(conn: aiosqlite.Connection) -> None:
     """建表 + FTS 索引 + 导入种子数据（幂等，可重复执行）。"""
     await conn.executescript("""
+        CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            username      TEXT NOT NULL UNIQUE,
+            email         TEXT,
+            password_hash TEXT NOT NULL,
+            created_at    TEXT DEFAULT (datetime('now')),
+            last_login_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS diet_profiles (
+            user_id     INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            diet_labels TEXT NOT NULL DEFAULT '[]',
+            allergens   TEXT NOT NULL DEFAULT '[]',
+            price_pref  INTEGER,
+            updated_at  TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS food_log_entries (
+            id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id            INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            food_id            INTEGER,
+            food_name_snapshot TEXT NOT NULL,
+            log_date           TEXT NOT NULL,
+            meal_type          TEXT NOT NULL,
+            amount_g           REAL NOT NULL DEFAULT 100,
+            calories           REAL NOT NULL DEFAULT 0,
+            protein_g          REAL NOT NULL DEFAULT 0,
+            fat_g              REAL NOT NULL DEFAULT 0,
+            carb_g             REAL NOT NULL DEFAULT 0,
+            notes              TEXT,
+            created_at         TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS saved_restaurants (
+            user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            restaurant_id TEXT NOT NULL,
+            saved_at      TEXT DEFAULT (datetime('now')),
+            PRIMARY KEY (user_id, restaurant_id)
+        );
+
         CREATE TABLE IF NOT EXISTS food_items (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             name_zh      TEXT NOT NULL,

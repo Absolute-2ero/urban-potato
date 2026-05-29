@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import csv
+import io
 from datetime import date
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 
 from models.diet import DietProfile, DietProfileUpdate, FoodLogCreate, FoodLogEntry
 from services import diet_service
@@ -61,6 +64,33 @@ async def delete_log(entry_id: int, request: Request) -> dict:
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Entry not found")
     return {}
+
+
+# ── Export ───────────────────────────────────────────────────────────────────
+
+@router.get("/log/export")
+async def export_logs(
+    request: Request,
+    from_date: date = Query(...),
+    to_date: date = Query(...),
+) -> StreamingResponse:
+    uid = _require_login(request)
+    entries = await diet_service.list_food_logs_range(uid, from_date, to_date)
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["date", "meal", "food", "amount_g", "calories", "protein_g", "fat_g", "carb_g", "notes"])
+    for e in entries:
+        writer.writerow([e.log_date, e.meal_type, e.food_name_snapshot,
+                         e.amount_g, e.calories, e.protein_g, e.fat_g, e.carb_g, e.notes or ""])
+    buf.seek(0)
+
+    filename = f"diet_{from_date}_{to_date}.csv"
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── 每日汇总 ──────────────────────────────────────────────────────────────────

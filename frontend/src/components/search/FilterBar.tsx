@@ -10,33 +10,33 @@ const { Text } = Typography
 // ── Static option lists ────────────────────────────────────────────────────
 
 const CUISINE_OPTIONS = [
-  { value: 'sichuan', label: '川菜', emoji: '🌶️' },
-  { value: 'cantonese', label: '粤菜', emoji: '🍵' },
-  { value: 'hunan', label: '湘菜', emoji: '🥘' },
-  { value: 'shandong', label: '鲁菜', emoji: '🦞' },
-  { value: 'jiangsu', label: '苏菜', emoji: '🍤' },
-  { value: 'zhejiang', label: '浙菜', emoji: '🐟' },
-  { value: 'fujian', label: '闽菜', emoji: '🍲' },
-  { value: 'anhui', label: '徽菜', emoji: '🍄' },
+  { value: 'sichuan',   label: 'Sichuan',   emoji: '🌶️' },
+  { value: 'cantonese', label: 'Cantonese', emoji: '🍵' },
+  { value: 'hunan',     label: 'Hunan',     emoji: '🥘' },
+  { value: 'shandong',  label: 'Shandong',  emoji: '🦞' },
+  { value: 'jiangsu',   label: 'Jiangsu',   emoji: '🍤' },
+  { value: 'zhejiang',  label: 'Zhejiang',  emoji: '🐟' },
+  { value: 'fujian',    label: 'Fujian',    emoji: '🍲' },
+  { value: 'anhui',     label: 'Anhui',     emoji: '🍄' },
 ]
 
 const FOOD_TYPE_OPTIONS = [
-  { value: 'fast_food', label: '快餐', emoji: '🍔' },
-  { value: 'street_food', label: '小吃快餐', emoji: '🥡' },
-  { value: 'bbq', label: '烧烤', emoji: '🔥' },
-  { value: 'hotpot', label: '火锅', emoji: '🍲' },
-  { value: 'buffet', label: '自助餐', emoji: '🍽️' },
-  { value: 'noodles', label: '面馆', emoji: '🍜' },
-  { value: 'congee', label: '粥店', emoji: '🥣' },
-  { value: 'dumplings', label: '饺子馆', emoji: '🥟' },
-  { value: 'korean_bbq', label: '烤肉', emoji: '🥩' },
+  { value: 'fast_food',   label: 'Fast food',   emoji: '🍔' },
+  { value: 'street_food', label: 'Street food', emoji: '🥡' },
+  { value: 'bbq',         label: 'BBQ',         emoji: '🔥' },
+  { value: 'hotpot',      label: 'Hot pot',     emoji: '🍲' },
+  { value: 'buffet',      label: 'Buffet',      emoji: '🍽️' },
+  { value: 'noodles',     label: 'Noodles',     emoji: '🍜' },
+  { value: 'congee',      label: 'Congee',      emoji: '🥣' },
+  { value: 'dumplings',   label: 'Dumplings',   emoji: '🥟' },
+  { value: 'korean_bbq',  label: 'Korean BBQ',  emoji: '🥩' },
 ]
 
 const PRICE_OPTIONS = [
-  { value: '0-20', label: '¥0–20', level: 1 },
-  { value: '20-40', label: '¥20–40', level: 2 },
-  { value: '40-60', label: '¥40–60', level: 3 },
-  { value: '60+', label: '¥60+', level: 4 },
+  { value: '0-20', label: '$0–20', level: 1 },
+  { value: '20-40', label: '$20–40', level: 2 },
+  { value: '40-60', label: '$40–60', level: 3 },
+  { value: '60+', label: '$60+', level: 4 },
 ]
 
 const NUTRITION_OPTIONS = [
@@ -152,9 +152,9 @@ function calLabel([lo, hi]: [number, number]): string {
 }
 
 function priceLabel([lo, hi]: [number, number]): string {
-  if (lo === 0) return `≤¥${hi}`
-  if (hi >= 200) return `≥¥${lo}`
-  return `¥${lo}–${hi}`
+  if (lo === 0) return `≤$${hi}`
+  if (hi >= 200) return `≥$${lo}`
+  return `$${lo}–${hi}`
 }
 
 // ── Sub-component: group button with Popover ───────────────────────────────
@@ -210,6 +210,43 @@ function GroupBtn({
       >
         <span>{emoji}</span>
         <span>{label}{active ? ` · ${activeCount}` : ''}</span>
+        <DownOutlined style={{ fontSize: 9, marginLeft: 1 }} />
+      </button>
+    </Popover>
+  )
+}
+
+// ── Sort button — shows current sort mode inline, no chip ─────────────────
+
+function SortBtn({ label, isOpen, onToggle, content }: {
+  label: string
+  isOpen: boolean
+  onToggle: (open: boolean) => void
+  content: React.ReactNode
+}) {
+  const isDefault = label === 'Best match'
+  return (
+    <Popover
+      trigger="click"
+      open={isOpen}
+      onOpenChange={onToggle}
+      content={content}
+      arrow={false}
+      overlayInnerStyle={{ padding: '14px 16px', borderRadius: 12, minWidth: 210, maxWidth: 310 }}
+      placement="bottomLeft"
+    >
+      <button style={{
+        display: 'flex', alignItems: 'center', gap: 5,
+        padding: '6px 14px', borderRadius: 8,
+        border: '1.5px solid #9E9E9E',
+        background: '#F0F0F0',
+        color: '#333',
+        fontSize: 13, cursor: 'pointer', fontWeight: 500,
+        whiteSpace: 'nowrap' as const, outline: 'none', flexShrink: 0,
+        transition: 'all 0.12s',
+      }}>
+        <span>↕</span>
+        <span>Sort: {label}</span>
         <DownOutlined style={{ fontSize: 9, marginLeft: 1 }} />
       </button>
     </Popover>
@@ -476,15 +513,15 @@ export function FilterBar({
           value={priceSlider}
           onChange={(v) => setPriceSlider(v as [number, number])}
           onChangeComplete={(v) => onFilterChange({ priceRange: v as [number, number] })}
-          tooltip={{ formatter: (v) => `¥${v}` }}
+          tooltip={{ formatter: (v) => `$${v}` }}
           styles={{
             track: { background: '#1565C0' },
             handle: { borderColor: '#1565C0' },
           }}
         />
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: -8, marginBottom: 8 }}>
-          <Text type="secondary" style={{ fontSize: 11 }}>¥{priceSlider[0]}</Text>
-          <Text type="secondary" style={{ fontSize: 11 }}>¥{priceSlider[1]}</Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>${priceSlider[0]}</Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>${priceSlider[1]}</Text>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' as const }}>
@@ -497,7 +534,7 @@ export function FilterBar({
               background: '#fff', fontSize: 12, cursor: 'pointer', outline: 'none', color: '#6B7A7A',
             }}
           >
-            ≤¥{hi}
+            ≤${hi}
           </button>
         ))}
         {filters.priceRange && (
@@ -767,7 +804,7 @@ export function FilterBar({
   const priceCount = filters.priceRange ? 1 : 0
   const healthCount = (filters.calorieRange ? 1 : 0) + filters.nutritionLabels.length
   const ratingCount = filters.minRating !== null ? 1 : 0
-  const sortCount = filters.sortMode !== 'default' ? 1 : 0
+  const sortCount = 0 // sort shown inline in button, not as a chip
   const distanceCount = filters.maxDistanceKm !== null ? 1 : 0
   const allergyCount = filters.allergyRestrictions.length + filters.dietLabels.filter((d) => ALLERGY_DIET_LABELS.includes(d)).length
   const dietCount = filters.dietLabels.filter((d) => !ALLERGY_DIET_LABELS.includes(d)).length + filters.extraDietRestrictions.length
@@ -828,10 +865,15 @@ export function FilterBar({
           overflowX: 'auto' as const, scrollbarWidth: 'none' as any, msOverflowStyle: 'none' as any,
         }}
       >
-        <GroupBtn emoji="↕" label="Sort" activeCount={sortCount} isOpen={openGroup === 'sort'} onToggle={toggle('sort')} content={sortContent} />
+        <SortBtn
+          label={SORT_OPTIONS.find((s) => s.value === filters.sortMode)?.label ?? 'Best match'}
+          isOpen={openGroup === 'sort'}
+          onToggle={toggle('sort')}
+          content={sortContent}
+        />
         <GroupBtn emoji="📍" label="Distance" activeCount={distanceCount} isOpen={openGroup === 'distance'} onToggle={toggle('distance')} content={distanceContent} disabled={!locAvailable} />
         <GroupBtn emoji="⭐" label="Rating" activeCount={ratingCount} isOpen={openGroup === 'rating'} onToggle={toggle('rating')} content={ratingContent} />
-        <GroupBtn emoji="¥" label="Price" activeCount={priceCount} isOpen={openGroup === 'price'} onToggle={toggle('price')} content={priceContent} />
+        <GroupBtn emoji="$" label="Price" activeCount={priceCount} isOpen={openGroup === 'price'} onToggle={toggle('price')} content={priceContent} />
       </div>
 
       {/* Active filter chips */}
@@ -903,11 +945,7 @@ export function FilterBar({
                 onRemove={() => onFilterChange({ cuisineTypes: filters.cuisineTypes.filter((c) => c !== value) })} />
             )
           })}
-          {/* Sort (teal) */}
-          {filters.sortMode !== 'default' && (
-            <ActiveChip label={SORT_OPTIONS.find((s) => s.value === filters.sortMode)?.label ?? filters.sortMode} color={PRIMARY_COLOR} bg={PRIMARY_COLOR + '10'}
-              onRemove={() => onFilterChange({ sortMode: 'default' })} />
-          )}
+          {/* Sort is shown inline in the Sort button — no chip here */}
           {/* Distance (teal) */}
           {filters.maxDistanceKm !== null && (
             <ActiveChip label={`📍 ${DISTANCE_OPTIONS.find((d) => d.value === filters.maxDistanceKm)?.label}`} color="#00838F" bg="#E0F7FA"
@@ -920,7 +958,7 @@ export function FilterBar({
           )}
           {/* Price (blue) */}
           {filters.priceRange && (
-            <ActiveChip label={`¥ ${priceLabel(filters.priceRange)}`} color="#1565C0" bg="#E3F2FD"
+            <ActiveChip label={`$ ${priceLabel(filters.priceRange)}`} color="#1565C0" bg="#E3F2FD"
               onRemove={() => onFilterChange({ priceRange: null })} />
           )}
           <Button

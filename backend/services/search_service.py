@@ -45,13 +45,36 @@ def _build_es_query(
     # ── 全文 BM25 ────────────────────────────────────────────────────────────
     if tokens:
         query_text = " ".join(tokens)
+        # Require at least one of: restaurant-level Chinese match OR English menu item match
         must_clauses.append(
             {
-                "multi_match": {
-                    "query": query_text,
-                    "fields": ["name^3", "description^2", "cuisine_type", "address"],
-                    "type": "best_fields",
-                    "minimum_should_match": "60%",
+                "bool": {
+                    "should": [
+                        {
+                            "multi_match": {
+                                "query": query_text,
+                                "fields": ["name^3", "description^2", "cuisine_type", "address"],
+                                "type": "best_fields",
+                                "minimum_should_match": "60%",
+                            }
+                        },
+                        {
+                            "nested": {
+                                "path": "menu_items",
+                                "query": {
+                                    "match": {
+                                        "menu_items.name_en": {
+                                            "query": query_text,
+                                            "operator": "or",
+                                            "minimum_should_match": "60%",
+                                        }
+                                    }
+                                },
+                                "score_mode": "max",
+                            }
+                        },
+                    ],
+                    "minimum_should_match": 1,
                 }
             }
         )
@@ -136,7 +159,7 @@ async def search(
 
     # ── 2. 查询解析 + 同义词扩展 ──────────────────────────────────────────────
     parsed = _parser.parse(query_text, sort_mode=params.sort_mode)
-    search_tokens = parsed.expanded_tokens
+    search_tokens = parsed.free_text_tokens
     detected_diet_labels = parsed.detected_diet_labels
 
     # 用户显式指定的 diet_labels 优先，再补充从查询检测到的
@@ -199,9 +222,43 @@ async def search(
     # ── 7. 组装响应 ───────────────────────────────────────────────────────────
     facets = _parse_facets(aggs)
 
+    # Flatten ES hit structure: merge _source with scoring fields so the
+    # frontend can treat each hit directly as a Restaurant object.
+    def _flatten(hit: Dict[str, Any]) -> Dict[str, Any]:
+        src = dict(hit.get("_source", {}))
+        for field in ("diet_labels", "allergens", "allergen_free", "images"):
+            val = src.get(field)
+            if isinstance(val, str):
+                src[field] = [v for v in val.split() if v] if val.strip() else []
+            elif not isinstance(val, list):
+                src[field] = []
+        menu = src.get("menu_items")
+        if not isinstance(menu, list):
+            src["menu_items"] = []
+        # Derive price_level if not set
+        if not src.get("price_level"):
+            import re as _re
+            pr = src.get("price_range", "")
+            if pr:
+                nums = [int(n) for n in _re.findall(r'\d+', pr)]
+                if nums:
+                    avg = sum(nums) / len(nums)
+                    src["price_level"] = 1 if avg < 100 else 2 if avg < 200 else 3 if avg < 400 else 4
+            if not src.get("price_level"):
+                prices = [i["price"] for i in src.get("menu_items", []) if isinstance(i, dict) and i.get("price")]
+                if prices:
+                    avg = sum(prices) / len(prices)
+                    src["price_level"] = 1 if avg < 50 else 2 if avg < 100 else 3 if avg < 200 else 4
+        src["_final_score"] = hit.get("_final_score")
+        src["_distance_m"] = hit.get("_distance_m")
+        src["_allergen_warning"] = hit.get("_allergen_warning") or []
+        return src
+
+    flattened = [_flatten(h) for h in reranked]
+
     return SearchResponse(
         total=total,
-        hits=reranked,
+        hits=flattened,
         facets=facets,
         spell_suggestion=spell_suggestion,
         detected_diet_labels=detected_diet_labels,
@@ -209,34 +266,50 @@ async def search(
         sort_mode=params.sort_mode,
         offset=params.offset,
         limit=params.limit,
-        crawl_triggered=(total < 5 and params.offset == 0 and bool(query_text)),
+        crawl_triggered=False,
     )
 
 
 # ── 自动补全 ──────────────────────────────────────────────────────────────────
 
-async def autocomplete(prefix: str, size: int = 8) -> List[str]:
-    """基于 ES completion suggester 返回餐厅名称候选。"""
+async def autocomplete(prefix: str, size: int = 8, city: Optional[str] = None) -> List[str]:
+    """Prefix search on restaurant names, optionally filtered by city."""
     es = get_es()
+    # Map city id → restaurant_id prefix patterns
+    _CITY_PREFIXES: Dict[str, List[str]] = {
+        "hongkong": ["openrice_", "foodpanda_"],
+        "beijing":  ["gaode_"],
+    }
+    filter_clauses: List[Dict] = []
+    if city and city in _CITY_PREFIXES:
+        filter_clauses.append({
+            "bool": {
+                "should": [
+                    {"prefix": {"restaurant_id": p}} for p in _CITY_PREFIXES[city]
+                ],
+                "minimum_should_match": 1,
+            }
+        })
     try:
-        resp = await es.search(
-            index=_INDEX,
-            body={
-                "suggest": {
-                    "name_suggest": {
-                        "prefix": prefix,
-                        "completion": {
-                            "field": "name_suggest",
-                            "size": size,
-                            "skip_duplicates": True,
-                        },
-                    }
-                },
-                "_source": False,
+        body: Dict[str, Any] = {
+            "size": size,
+            "query": {
+                "bool": {
+                    "must": {"match_phrase_prefix": {"name": {"query": prefix, "max_expansions": 20}}},
+                    **({"filter": filter_clauses} if filter_clauses else {}),
+                }
             },
-        )
-        options = resp.get("suggest", {}).get("name_suggest", [{}])[0].get("options", [])
-        return [o["text"] for o in options]
+            "_source": ["name"],
+        }
+        resp = await es.search(index=_INDEX, body=body)
+        seen: set = set()
+        results: List[str] = []
+        for hit in resp["hits"]["hits"]:
+            name = hit["_source"].get("name", "")
+            if name and name not in seen:
+                seen.add(name)
+                results.append(name)
+        return results
     except Exception as exc:
         logger.warning("Autocomplete error: %s", exc)
         return []

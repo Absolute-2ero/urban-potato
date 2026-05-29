@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Button, Modal, Typography, message } from 'antd'
-import { CheckOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Button, DatePicker, InputNumber, Modal, Typography, message } from 'antd'
+import { CheckOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons'
+import type { Dayjs } from 'dayjs'
+import dayjs from 'dayjs'
+import { exportLogs } from '@/api/diet'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
-import { loadPrefs, savePrefs, type SavedPrefs } from '@/utils/prefs'
+import { loadPrefs, savePrefs, loadGoals, saveGoals, DEFAULT_GOALS, type SavedPrefs, type DailyGoals } from '@/utils/prefs'
 import { PRIMARY_COLOR } from '@/constants'
 
 const { Title, Text } = Typography
@@ -92,10 +95,17 @@ export default function ProfilePage() {
   const { user, deleteAccount } = useAuthStore()
   const navigate = useNavigate()
   const [prefs, setPrefs] = useState<SavedPrefs>({ nutritionLabels: [], dietLabels: [], allergyRestrictions: [] })
+  const [goals, setGoals] = useState<DailyGoals>(DEFAULT_GOALS)
   const [deleting, setDeleting] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportRange, setExportRange] = useState<[Dayjs, Dayjs]>([dayjs().subtract(30, 'day'), dayjs()])
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
-    if (user) setPrefs(loadPrefs(user.id))
+    if (user) {
+      setPrefs(loadPrefs(user.id))
+      setGoals(loadGoals(user.id))
+    }
   }, [user?.id])
 
   if (!user) {
@@ -151,7 +161,27 @@ export default function ProfilePage() {
 
   const handleSave = () => {
     savePrefs(user.id, prefs)
+    saveGoals(user.id, goals)
     message.success('Preferences saved')
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const blob = await exportLogs(
+        exportRange[0].format('YYYY-MM-DD'),
+        exportRange[1].format('YYYY-MM-DD'),
+      )
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `diet_${exportRange[0].format('YYYY-MM-DD')}_${exportRange[1].format('YYYY-MM-DD')}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      setExportOpen(false)
+    } finally {
+      setExporting(false)
+    }
   }
 
   const handleDeleteAccount = () => {
@@ -217,6 +247,30 @@ export default function ProfilePage() {
           <ToggleChips options={ALLERGY_OPTIONS} selected={selectedAllergies} color="#E85454" onToggle={toggleAllergy} />
         </PrefSection>
 
+        {/* Daily goals */}
+        <PrefSection emoji="🎯" title="Daily nutrition goals" subtitle="Used for progress bars on your diet tracker" color="#E65100">
+          {([
+            { key: 'calories', label: 'Calories', unit: 'kcal', color: '#fa8c16', max: 6000 },
+            { key: 'protein_g', label: 'Protein', unit: 'g', color: '#2D9B5A', max: 500 },
+            { key: 'fat_g', label: 'Fat', unit: 'g', color: '#f759ab', max: 500 },
+            { key: 'carb_g', label: 'Carbs', unit: 'g', color: '#52c41a', max: 500 },
+          ] as { key: keyof DailyGoals; label: string; unit: string; color: string; max: number }[]).map(({ key, label, unit, color, max }) => (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text strong style={{ color, fontSize: 14 }}>{label}</Text>
+              <InputNumber
+                min={0} max={max} value={goals[key]}
+                onChange={(v) => setGoals((g) => ({ ...g, [key]: v ?? 0 }))}
+                style={{ width: 130 }}
+                addonAfter={unit}
+              />
+            </div>
+          ))}
+          <Button size="small" type="text" style={{ color: '#AAB4B4', padding: 0, marginTop: 4 }}
+            onClick={() => setGoals(DEFAULT_GOALS)}>
+            Reset to defaults
+          </Button>
+        </PrefSection>
+
         {/* Save button */}
         <Button
           type="primary"
@@ -227,6 +281,20 @@ export default function ProfilePage() {
         >
           Save preferences
         </Button>
+
+        {/* Data */}
+        <div style={{ borderTop: '1px solid #F0E8E0', paddingTop: 24, marginBottom: 24 }}>
+          <Text style={{ fontSize: 11, color: '#AAB4B4', textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600, display: 'block', marginBottom: 12 }}>
+            Your data
+          </Text>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={() => setExportOpen(true)}
+            style={{ borderRadius: 8 }}
+          >
+            Export diet history
+          </Button>
+        </div>
 
         {/* Danger zone */}
         <div style={{ borderTop: '1px solid #F0E8E0', paddingTop: 24 }}>
@@ -244,6 +312,33 @@ export default function ProfilePage() {
           </Button>
         </div>
       </div>
+
+      <Modal
+        title="Export diet history"
+        open={exportOpen}
+        onCancel={() => setExportOpen(false)}
+        onOk={handleExport}
+        okText="Download CSV"
+        confirmLoading={exporting}
+        okButtonProps={{ style: { background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR } }}
+      >
+        <div style={{ padding: '16px 0' }}>
+          <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+            Select the date range to export:
+          </Text>
+          <DatePicker.RangePicker
+            value={exportRange}
+            onChange={(v) => { if (v?.[0] && v?.[1]) setExportRange([v[0], v[1]]) }}
+            disabledDate={(d) => d.isAfter(dayjs(), 'day')}
+            presets={[
+              { label: 'Last 7 days',   value: [dayjs().subtract(7, 'day'),   dayjs()] },
+              { label: 'Last 30 days',  value: [dayjs().subtract(30, 'day'),  dayjs()] },
+              { label: 'Last 3 months', value: [dayjs().subtract(3, 'month'), dayjs()] },
+            ]}
+            style={{ width: '100%' }}
+          />
+        </div>
+      </Modal>
     </div>
   )
 }

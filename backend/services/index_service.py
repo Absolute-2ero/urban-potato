@@ -38,41 +38,69 @@ _DEFAULT_MAPPING: Dict[str, Any] = {
     },
     "mappings": {
         "properties": {
+            # ── IDs ───────────────────────────────────────────────────────────
             "restaurant_id":  {"type": "keyword"},
+            "gaode_poi_id":   {"type": "keyword"},
+            "eleme_id":       {"type": "keyword"},
+
+            # ── 展示信息 ──────────────────────────────────────────────────────
             "name":           {"type": "text", "analyzer": "ik_max_analyzer",
                                "search_analyzer": "ik_smart_analyzer",
                                "copy_to": "name_suggest"},
             "name_suggest":   {"type": "completion"},
-            "description":    {"type": "text", "analyzer": "ik_smart_analyzer"},
+            "address":        {"type": "text", "analyzer": "ik_smart_analyzer"},
+            "district":       {"type": "keyword"},       # 区名，用于区域筛选
+
+            # ── 分类 ──────────────────────────────────────────────────────────
             "cuisine_type":   {"type": "text", "analyzer": "ik_smart_analyzer",
                                "fields": {"keyword": {"type": "keyword"}}},
-            "address":        {"type": "text", "analyzer": "ik_smart_analyzer"},
+            "typecode":       {"type": "keyword"},
+            "tags":           {"type": "keyword"},       # 短标签列表
+            "biz_type":       {"type": "text", "analyzer": "ik_smart_analyzer",
+                               "fields": {"keyword": {"type": "keyword"}}},
+
+            # ── 联系 ──────────────────────────────────────────────────────────
             "phone":          {"type": "keyword"},
-            "price_level":    {"type": "integer"},
+
+            # ── 经营数据 ──────────────────────────────────────────────────────
             "rating":         {"type": "float"},
             "rating_count":   {"type": "integer"},
-            "geo": {
-                "type": "geo_point",
-                "properties": {
-                    "lat": {"type": "double"},
-                    "lng": {"type": "double"},
-                },
-            },
+            "avg_cost":       {"type": "float"},
+            "price_level":    {"type": "integer"},
+            "opening_hours":  {"type": "keyword"},
+
+            # ── 位置 ──────────────────────────────────────────────────────────
+            "geo":            {"type": "geo_point"},
+
+            # ── 饮食标签 ──────────────────────────────────────────────────────
             "diet_labels":    {"type": "keyword"},
             "allergens":      {"type": "keyword"},
             "allergen_free":  {"type": "keyword"},
-            "business_hours": {"type": "keyword"},
+
+            # ── 媒体 ──────────────────────────────────────────────────────────
             "images":         {"type": "keyword", "index": False},
+
+            # ── 元数据 ────────────────────────────────────────────────────────
             "source":         {"type": "keyword"},
+
+            # ── 菜单（nested，每道菜可单独匹配/评分）─────────────────────────
             "menu_items": {
                 "type": "nested",
                 "properties": {
-                    "item_id":    {"type": "keyword"},
-                    "name":       {"type": "text", "analyzer": "ik_max_analyzer"},
-                    "price":      {"type": "float"},
-                    "diet_labels":{"type": "keyword"},
-                    "allergens":  {"type": "keyword"},
-                    "calories":   {"type": "float"},
+                    "food_id":     {"type": "keyword"},
+                    "item_id":     {"type": "keyword"},
+                    "name":        {"type": "text", "analyzer": "ik_max_analyzer"},
+                    "name_en":     {"type": "text", "analyzer": "standard"},
+                    "description": {"type": "text", "analyzer": "ik_smart_analyzer"},
+                    "price":       {"type": "float"},
+                    "image_url":   {"type": "keyword", "index": False},
+                    # Gemini 填充
+                    "calories":    {"type": "float"},
+                    "protein":     {"type": "float"},
+                    "fat":         {"type": "float"},
+                    "carbs":       {"type": "float"},
+                    "diet_labels": {"type": "keyword"},
+                    "allergens":   {"type": "keyword"},
                 },
             },
         }
@@ -139,7 +167,7 @@ async def bulk_index(documents: List[Dict[str, Any]]) -> int:
         if "geo" in doc and isinstance(doc["geo"], dict):
             g = doc["geo"]
             doc = dict(doc)
-            doc["geo"] = {"lat": g.get("lat", 0), "lon": g.get("lng", 0)}
+            doc["geo"] = {"lat": g.get("lat") or 0, "lon": g.get("lng") or 0}
         actions.append(doc)
 
     resp = await es.bulk(operations=actions, refresh="wait_for")
@@ -161,5 +189,5 @@ async def index_restaurant(doc: Dict[str, Any]) -> None:
     if "geo" in doc and isinstance(doc["geo"], dict):
         g = doc["geo"]
         doc = dict(doc)
-        doc["geo"] = {"lat": g.get("lat", 0), "lon": g.get("lng", 0)}
+        doc["geo"] = {"lat": g.get("lat") or 0, "lon": g.get("lng") or 0}
     await es.index(index=_INDEX, id=rid, document=doc)

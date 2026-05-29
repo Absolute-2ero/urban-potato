@@ -1,4 +1,4 @@
-import { Tag, Tooltip } from 'antd'
+import { Tag } from 'antd'
 import { DIET_LABEL_META } from '@/constants'
 import type { DietLabel } from '@/types'
 
@@ -13,21 +13,20 @@ export function DietBadge({ label, size = 'default', onClick }: Props) {
   if (!meta) return null
 
   return (
-    <Tooltip title={meta.label}>
-      <Tag
-        color={meta.color}
-        style={{
-          cursor: onClick ? 'pointer' : 'default',
-          fontSize: size === 'small' ? 11 : 12,
-          padding: size === 'small' ? '0 4px' : '0 7px',
-          borderRadius: 12,
-          userSelect: 'none',
-        }}
-        onClick={onClick}
-      >
-        {meta.emoji} {meta.label}
-      </Tag>
-    </Tooltip>
+    <Tag
+      title={meta.label}
+      color={meta.color}
+      style={{
+        cursor: onClick ? 'pointer' : 'default',
+        fontSize: size === 'small' ? 11 : 12,
+        padding: size === 'small' ? '0 4px' : '0 7px',
+        borderRadius: 12,
+        userSelect: 'none',
+      }}
+      onClick={onClick}
+    >
+      {meta.emoji} {meta.label}
+    </Tag>
   )
 }
 
@@ -47,9 +46,12 @@ export function DietBadgeGroup({ labels, maxVisible = 4, onLabelClick }: GroupPr
         <DietBadge key={l} label={l} size="small" onClick={() => onLabelClick?.(l)} />
       ))}
       {hidden.length > 0 && (
-        <Tooltip title={hidden.map((l) => DIET_LABEL_META[l]?.label).join('、')}>
-          <Tag style={{ fontSize: 11, borderRadius: 12 }}>+{hidden.length}</Tag>
-        </Tooltip>
+        <Tag
+          title={hidden.map((l) => DIET_LABEL_META[l]?.label).join(', ')}
+          style={{ fontSize: 11, borderRadius: 12, cursor: 'default' }}
+        >
+          +{hidden.length}
+        </Tag>
       )}
     </span>
   )

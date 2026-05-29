@@ -45,7 +45,6 @@ export function FoodSearchModal({ open, onClose, onAdded }: Props) {
     if (!selected) return
     let food = selected
 
-    // BR-03: LLM 结果先确认再写库
     if (requiresConfirm && !food.food_id) {
       setConfirming(true)
       try {
@@ -72,25 +71,19 @@ export function FoodSearchModal({ open, onClose, onAdded }: Props) {
   }
 
   const columns = [
-    { title: '食物', dataIndex: 'name_zh', key: 'name_zh' },
-    { title: '热量/100g', dataIndex: 'calories_per_100g', key: 'cal', render: (v: number) => `${v} kcal` },
-    { title: '蛋白质', dataIndex: 'protein_g', key: 'pro', render: (v: number) => `${v}g` },
-    { title: '脂肪', dataIndex: 'fat_g', key: 'fat', render: (v: number) => `${v}g` },
-    { title: '碳水', dataIndex: 'carb_g', key: 'carb', render: (v: number) => `${v}g` },
+    { title: 'Food', dataIndex: 'name_zh', key: 'name_zh' },
+    { title: 'Calories/100g', dataIndex: 'calories_per_100g', key: 'cal', render: (v: number) => `${v} kcal` },
+    { title: 'Protein', dataIndex: 'protein_g', key: 'pro', render: (v: number) => `${v}g` },
+    { title: 'Fat', dataIndex: 'fat_g', key: 'fat', render: (v: number) => `${v}g` },
+    { title: 'Carbs', dataIndex: 'carb_g', key: 'carb', render: (v: number) => `${v}g` },
   ]
 
   return (
-    <Modal
-      title="记录饮食"
-      open={open}
-      onCancel={onClose}
-      footer={null}
-      width={680}
-    >
+    <Modal title="Log food" open={open} onCancel={onClose} footer={null} width={680}>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
         <Select
           showSearch
-          placeholder="搜索食物名称…"
+          placeholder="Search food…"
           style={{ flex: 1 }}
           filterOption={false}
           onSearch={setQuery}
@@ -98,7 +91,7 @@ export function FoodSearchModal({ open, onClose, onAdded }: Props) {
           notFoundContent={null}
         />
         <Button type="primary" onClick={handleSearch} loading={loading}>
-          搜索
+          Search
         </Button>
       </div>
 
@@ -107,13 +100,13 @@ export function FoodSearchModal({ open, onClose, onAdded }: Props) {
           type="warning"
           showIcon
           icon={<ExclamationCircleOutlined />}
-          message="以下数据由 AI 估算，请核实后再添加（确认后将永久保存）"
+          message="These values are AI-estimated — please verify before adding (they'll be saved permanently on confirm)"
           style={{ marginBottom: 8 }}
         />
       )}
 
       {source === 'not_found' && (
-        <Alert type="info" message="未找到相关食物，请尝试其他关键词" style={{ marginBottom: 8 }} />
+        <Alert type="info" message="No results found — try different keywords" style={{ marginBottom: 8 }} />
       )}
 
       <Spin spinning={loading}>
@@ -133,18 +126,18 @@ export function FoodSearchModal({ open, onClose, onAdded }: Props) {
 
       {selected && (
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Text>份量：</Text>
+          <Text>Amount:</Text>
           <InputNumber
             min={1} max={2000} value={amount}
             onChange={(v) => setAmount(v ?? 100)}
             addonAfter="g"
           />
-          <Text>餐次：</Text>
+          <Text>Meal:</Text>
           <Select
             value={mealType}
             onChange={setMealType}
             options={MEAL_TYPES.map((m) => ({ value: m.value, label: m.label }))}
-            style={{ width: 90 }}
+            style={{ width: 110 }}
           />
           <Button
             type="primary"
@@ -152,7 +145,7 @@ export function FoodSearchModal({ open, onClose, onAdded }: Props) {
             loading={confirming}
             disabled={!selected}
           >
-            {requiresConfirm && !selected?.food_id ? '确认并添加' : '添加'}
+            {requiresConfirm && !selected?.food_id ? 'Confirm & add' : 'Add'}
           </Button>
         </div>
       )}

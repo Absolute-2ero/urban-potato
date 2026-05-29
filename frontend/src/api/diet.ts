@@ -29,3 +29,9 @@ export const saveRestaurant = (id: string) =>
 
 export const unsaveRestaurant = (id: string) =>
   client.delete(`/api/diet/saved-restaurants/${id}`)
+
+export const exportLogs = (fromDate: string, toDate: string) =>
+  client.get('/api/diet/log/export', {
+    params: { from_date: fromDate, to_date: toDate },
+    responseType: 'blob',
+  }).then((r) => r.data as Blob)
