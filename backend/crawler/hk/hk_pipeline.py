@@ -295,7 +295,7 @@ async def run_dedup() -> tuple[int, int]:
 async def run_retry_llm() -> int:
     from database import get_sqlite
     from crawler.hk.nlp_labeler import label_restaurant
-    from crawler.bj.llm_labeler import label_menu_items_batch
+    from crawler.bj.llm_labeler import label_menu_items_batch, translate_restaurant_name
     from services.index_service import index_restaurant
 
     db = get_sqlite()
@@ -316,6 +316,7 @@ async def run_retry_llm() -> int:
         doc = json.loads(row["doc_json"])
         try:
             label_restaurant(doc)
+            await translate_restaurant_name(doc)
             if doc.get("menu_items"):
                 await label_menu_items_batch(doc)
             await _upsert_doc(doc)

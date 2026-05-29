@@ -115,6 +115,7 @@ export interface MenuItem {
 export interface Restaurant {
   restaurant_id: string
   name: string
+  name_en?: string
   description?: string
   cuisine_type?: string
   address?: string
@@ -128,7 +129,8 @@ export interface Restaurant {
   allergen_free: string[]
   images?: string[]
   menu_items?: MenuItem[]
-  // 排序附加字段
+  matched_dishes?: MenuItem[]   // server-side inner_hits from ES nested query
+  // ranking fields
   _final_score?: number
   _distance_m?: number
   _allergen_warning?: string[]

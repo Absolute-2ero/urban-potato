@@ -60,9 +60,16 @@ export function RestaurantGroupCard({ restaurant: r, activeDietLabels = [], quer
     setLogItem(item)
   }
 
-  const matchedItems = (r.menu_items ?? [])
-    .filter((item) => dishMatchScore(item, activeDietLabels, query) > 0)
-    .sort((a, b) => dishMatchScore(b, activeDietLabels, query) - dishMatchScore(a, activeDietLabels, query))
+  // Prefer server-side matched_dishes (ES inner_hits) — already filtered & price-sorted.
+  // Fall back to client-side filtering when server didn't return inner_hits
+  // (e.g. empty query browsing).
+  const matchedItems: MenuItem[] = r.matched_dishes && r.matched_dishes.length > 0
+    ? r.matched_dishes
+    : (activeDietLabels.length > 0 || query)
+      ? (r.menu_items ?? [])
+          .filter((item) => dishMatchScore(item, activeDietLabels, query) > 0)
+          .sort((a, b) => dishMatchScore(b, activeDietLabels, query) - dishMatchScore(a, activeDietLabels, query))
+      : []
 
   const hasMore = matchedItems.length > MAX_VISIBLE
 
@@ -112,7 +119,7 @@ export function RestaurantGroupCard({ restaurant: r, activeDietLabels = [], quer
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <Title level={5} style={{ margin: 0, color: '#1E2A2A', fontSize: 15, lineHeight: 1.3 }} ellipsis>
-                {r.name}
+                {r.name_en || r.name}
               </Title>
               <Space size={6} style={{ flexShrink: 0, marginLeft: 8 }}>
                 {r.rating ? (

@@ -38,76 +38,101 @@ def _build_es_query(
     geo_radius_km: float,
     from_: int,
     size: int,
+    sort_mode: str = "default",
 ) -> Dict[str, Any]:
-    must_clauses: List[Dict] = []
     filter_clauses: List[Dict] = []
+    query_text = " ".join(tokens)
 
-    # ── 全文 BM25 ────────────────────────────────────────────────────────────
-    if tokens:
-        query_text = " ".join(tokens)
-        # Require at least one of: restaurant-level Chinese match OR English menu item match
-        must_clauses.append(
-            {
-                "bool": {
-                    "should": [
-                        {
-                            "multi_match": {
-                                "query": query_text,
-                                "fields": ["name^3", "description^2", "cuisine_type", "address"],
-                                "type": "best_fields",
-                                "minimum_should_match": "60%",
-                            }
-                        },
-                        {
-                            "nested": {
-                                "path": "menu_items",
-                                "query": {
-                                    "match": {
-                                        "menu_items.name_en": {
-                                            "query": query_text,
-                                            "operator": "or",
-                                            "minimum_should_match": "60%",
-                                        }
-                                    }
-                                },
-                                "score_mode": "max",
-                            }
-                        },
-                    ],
-                    "minimum_should_match": 1,
-                }
+    # ── Build the nested dish query (text + diet labels combined) ────────────
+    # This drives both dish-level matching and inner_hits retrieval.
+    nested_dish_conditions: List[Dict] = []
+    if query_text:
+        nested_dish_conditions.append({
+            "bool": {
+                "should": [
+                    {"match": {"menu_items.name_en": {"query": query_text, "minimum_should_match": "60%"}}},
+                    {"match": {"menu_items.name":    {"query": query_text, "minimum_should_match": "60%"}}},
+                ],
+                "minimum_should_match": 1,
             }
-        )
-
-    # ── 饮食标签过滤 ─────────────────────────────────────────────────────────
+        })
     if diet_labels:
-        filter_clauses.append({"terms": {"diet_labels": diet_labels}})
+        nested_dish_conditions.append({"terms": {"menu_items.diet_labels": diet_labels}})
 
-    # ── 价格档次过滤 ─────────────────────────────────────────────────────────
+    nested_inner_hits: Dict[str, Any] = {
+        "size": 20,
+        "_source": True,
+        "sort": [{"menu_items.price": {"order": "asc", "missing": "_last"}}],
+    }
+
+    nested_dish_clause: Optional[Dict] = None
+    if nested_dish_conditions:
+        nested_dish_clause = {
+            "nested": {
+                "path": "menu_items",
+                "query": (
+                    {"bool": {"must": nested_dish_conditions}}
+                    if len(nested_dish_conditions) > 1
+                    else nested_dish_conditions[0]
+                ),
+                "inner_hits": nested_inner_hits,
+                # score_mode=sum: restaurants with more matching dishes score higher
+                "score_mode": "sum",
+            }
+        }
+
+    # ── Build top-level query ────────────────────────────────────────────────
+    if query_text:
+        # Restaurant name match (high boost) OR dish match — at least one must fire
+        restaurant_name_clause: Dict = {
+            "multi_match": {
+                "query": query_text,
+                "fields": ["name^6", "name_en^5", "cuisine_type^2", "address"],
+                "type": "best_fields",
+                "minimum_should_match": "60%",
+            }
+        }
+        should_clauses = [restaurant_name_clause]
+        if nested_dish_clause:
+            should_clauses.append(nested_dish_clause)
+        top_query: Dict = {"bool": {"should": should_clauses, "minimum_should_match": 1}}
+
+    elif nested_dish_clause:
+        # Only diet labels set — must match dishes with those labels
+        top_query = nested_dish_clause
+
+    else:
+        top_query = {"match_all": {}}
+
+    # ── Filters (price level, geo) ───────────────────────────────────────────
     if price_levels:
         filter_clauses.append({"terms": {"price_level": price_levels}})
-
-    # ── 地理位置过滤 ─────────────────────────────────────────────────────────
     if geo:
         lat, lng = geo
-        filter_clauses.append(
-            {
-                "geo_distance": {
-                    "distance": f"{geo_radius_km}km",
-                    "geo": {"lat": lat, "lon": lng},
-                }
+        filter_clauses.append({
+            "geo_distance": {
+                "distance": f"{geo_radius_km}km",
+                "geo": {"lat": lat, "lon": lng},
             }
-        )
+        })
 
-    bool_query: Dict[str, Any] = {}
-    if must_clauses:
-        bool_query["must"] = must_clauses
+    final_query = (
+        {"bool": {"must": top_query, "filter": filter_clauses}}
+        if filter_clauses
+        else top_query
+    )
+
+    # ── Sort ─────────────────────────────────────────────────────────────────
+    if sort_mode == "price_asc":
+        sort: List = [{"price_level": {"order": "asc", "missing": "_last"}}, "_score"]
+    elif sort_mode == "rating_first":
+        sort = [{"rating": {"order": "desc", "missing": "_last"}}, "_score"]
+    elif sort_mode == "distance_first" and geo:
+        sort = [{"_geo_distance": {"geo": {"lat": geo[0], "lon": geo[1]}, "order": "asc"}}, "_score"]
     else:
-        bool_query["must"] = [{"match_all": {}}]
-    if filter_clauses:
-        bool_query["filter"] = filter_clauses
+        sort = ["_score"]
 
-    # ── Aggregations (Facets) ────────────────────────────────────────────────
+    # ── Aggregations ─────────────────────────────────────────────────────────
     aggs = {
         "diet_labels": {"terms": {"field": "diet_labels", "size": 20}},
         "price_level": {"terms": {"field": "price_level", "size": 5}},
@@ -117,7 +142,8 @@ def _build_es_query(
     return {
         "from": from_,
         "size": size,
-        "query": {"bool": bool_query},
+        "query": final_query,
+        "sort": sort,
         "aggs": aggs,
         "_source": True,
     }
@@ -181,6 +207,7 @@ async def search(
         geo_radius_km=params.radius_km or 5.0,
         from_=params.offset,
         size=params.limit,
+        sort_mode=params.sort_mode,
     )
 
     es = get_es()
@@ -249,6 +276,19 @@ async def search(
                 if prices:
                     avg = sum(prices) / len(prices)
                     src["price_level"] = 1 if avg < 50 else 2 if avg < 100 else 3 if avg < 200 else 4
+        # Extract matched dishes from ES inner_hits
+        matched_dishes: List[Dict] = []
+        inner = hit.get("inner_hits", {})
+        if "menu_items" in inner:
+            for ih in inner["menu_items"]["hits"]["hits"]:
+                dish = dict(ih.get("_source", {}))
+                dl = dish.get("diet_labels")
+                if isinstance(dl, str):
+                    dish["diet_labels"] = [v for v in dl.split() if v] if dl.strip() else []
+                elif not isinstance(dl, list):
+                    dish["diet_labels"] = []
+                matched_dishes.append(dish)
+        src["matched_dishes"] = matched_dishes
         src["_final_score"] = hit.get("_final_score")
         src["_distance_m"] = hit.get("_distance_m")
         src["_allergen_warning"] = hit.get("_allergen_warning") or []

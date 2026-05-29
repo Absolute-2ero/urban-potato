@@ -75,7 +75,7 @@ export default function RestaurantDetailPage() {
           Back
         </Button>
         <Title level={3} style={{ margin: 0, flex: 1 }}>
-          {r.name}
+          {r.name_en || r.name}
         </Title>
         <Button
           icon={saved ? <HeartFilled style={{ color: '#ff4d4f' }} /> : <HeartOutlined />}

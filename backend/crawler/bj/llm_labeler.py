@@ -177,6 +177,30 @@ async def _call_llm(dishes: list[dict]) -> list[dict]:
     return [_sanitize(r) for r in results]
 
 
+async def translate_restaurant_name(doc: dict[str, Any]) -> None:
+    """Add name_en (English) and name_zh (Chinese) to the restaurant doc if missing."""
+    if doc.get("name_en"):
+        return
+    name = doc.get("name", "")
+    if not name:
+        return
+    try:
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(base_url=cfg.llm_base_url, api_key=cfg.llm_api_key)
+        resp = await client.chat.completions.create(
+            model=cfg.llm_model,
+            messages=[{"role": "user", "content": (
+                f'Translate this restaurant name to English. '
+                f'Reply with ONLY the English name, nothing else.\n\nName: {name}'
+            )}],
+        )
+        name_en = (resp.choices[0].message.content or "").strip().strip('"\'')
+        if name_en:
+            doc["name_en"] = name_en
+    except Exception as exc:
+        logger.debug("Restaurant name translation failed for %r: %s", name, exc)
+
+
 async def label_menu_items_batch(doc: dict[str, Any]) -> None:
     """
     Analyze all menu items in a restaurant doc.

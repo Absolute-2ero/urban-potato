@@ -146,11 +146,14 @@ export default function SearchPage() {
   }
 
   // Rerank by matching dish count when filters are active
+  // Use server-side matched_dishes count when available (ES inner_hits already ranked
+  // by dish relevance). Fall back to client-side scoring for diet-only filters.
+  const matchCount = (r: Restaurant) =>
+    r.matched_dishes?.length ?? countMatchingDishes(r, dietLabels, q)
+
   const rankedResults =
     dietLabels.length > 0 || q
-      ? [...results].sort(
-          (a, b) => countMatchingDishes(b, dietLabels, q) - countMatchingDishes(a, dietLabels, q)
-        )
+      ? [...results].sort((a, b) => matchCount(b) - matchCount(a))
       : results
 
   return (
