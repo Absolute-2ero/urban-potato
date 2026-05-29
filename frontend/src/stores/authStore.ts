@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { getMe, login, logout, register } from '@/api/auth'
+import { deleteAccount as apiDeleteAccount, getMe, login, logout, register } from '@/api/auth'
 import type { User, UserCreate, UserLogin } from '@/types'
 
 interface AuthState {
@@ -9,6 +9,7 @@ interface AuthState {
   login: (data: UserLogin) => Promise<void>
   register: (data: UserCreate) => Promise<void>
   logout: () => Promise<void>
+  deleteAccount: () => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -36,6 +37,11 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     await logout()
+    set({ user: null })
+  },
+
+  deleteAccount: async () => {
+    await apiDeleteAccount()
     set({ user: null })
   },
 }))

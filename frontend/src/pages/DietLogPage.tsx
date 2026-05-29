@@ -1,29 +1,82 @@
 import { useEffect, useState } from 'react'
-import {
-  Button, DatePicker, Divider, Empty, List, Popconfirm,
-  Segmented, Space, Spin, Tag, Typography,
-} from 'antd'
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
+import { Button, Empty, Popconfirm, Spin, Typography } from 'antd'
+import { DeleteOutlined, LeftOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { deleteLog } from '@/api/diet'
-import { NutritionBar } from '@/components/diet/NutritionBar'
-import { FoodSearchModal } from '@/components/food/FoodSearchModal'
+import { AddLogModal } from '@/components/diet/AddLogModal'
 import { useDietStore } from '@/stores/dietStore'
-import { MEAL_TYPES } from '@/constants'
+import { PRIMARY_COLOR } from '@/constants'
 import type { FoodLogEntry, MealType } from '@/types'
 
-const { Text, Title } = Typography
+const { Text } = Typography
 
-const DEFAULT_TOTALS = { calories: 0, protein_g: 0, fat_g: 0, carb_g: 0 }
+const MEALS: { value: MealType; label: string; emoji: string; color: string }[] = [
+  { value: 'breakfast', label: 'Breakfast', emoji: '🌅', color: '#F57F17' },
+  { value: 'lunch',     label: 'Lunch',     emoji: '☀️', color: '#E65100' },
+  { value: 'dinner',    label: 'Dinner',    emoji: '🌙', color: '#1565C0' },
+  { value: 'snack',     label: 'Snack',     emoji: '🍎', color: '#2D9B5A' },
+]
+
+const DRI = { calories: 2000, protein_g: 60, fat_g: 65, carb_g: 300 }
+
+function MacroCard({ label, value, max, unit, color }: {
+  label: string; value: number; max: number; unit: string; color: string
+}) {
+  const pct = Math.min((value / max) * 100, 100)
+  const over = value > max
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, padding: '12px 14px', border: '1px solid #E8E0D5', flex: 1, minWidth: 0 }}>
+      <Text style={{ fontSize: 11, color: '#AAB4B4', fontWeight: 600, letterSpacing: 0.8, display: 'block', marginBottom: 4 }}>
+        {label.toUpperCase()}
+      </Text>
+      <Text strong style={{ fontSize: 18, color: over ? '#E85454' : '#1E2A2A' }}>{Math.round(value)}</Text>
+      <Text type="secondary" style={{ fontSize: 11 }}> / {max} {unit}</Text>
+      <div style={{ height: 4, background: '#F0EBE4', borderRadius: 2, marginTop: 8 }}>
+        <div style={{ height: 4, width: `${pct}%`, background: over ? '#E85454' : color, borderRadius: 2, transition: 'width 0.3s' }} />
+      </div>
+    </div>
+  )
+}
+
+function EntryRow({ entry, onDelete }: { entry: FoodLogEntry; onDelete: () => void }) {
+  return (
+    <div style={{ background: '#FAFAF8', borderRadius: 10, padding: '12px 14px', marginBottom: 6, border: '1px solid #E8E0D5', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <Text strong style={{ fontSize: 14, display: 'block', marginBottom: 4 }}>{entry.food_name_snapshot}</Text>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {entry.calories > 0 && (
+            <span style={{ fontSize: 12, color: '#fa8c16', background: '#FFF8E1', borderRadius: 999, padding: '2px 8px' }}>🔥 {Math.round(entry.calories)} kcal</span>
+          )}
+          {entry.protein_g > 0 && (
+            <span style={{ fontSize: 12, color: PRIMARY_COLOR, background: PRIMARY_COLOR + '12', borderRadius: 999, padding: '2px 8px' }}>{entry.protein_g.toFixed(1)}g protein</span>
+          )}
+          {entry.fat_g > 0 && (
+            <span style={{ fontSize: 12, color: '#f759ab', background: '#FFF0F8', borderRadius: 999, padding: '2px 8px' }}>{entry.fat_g.toFixed(1)}g fat</span>
+          )}
+          {entry.carb_g > 0 && (
+            <span style={{ fontSize: 12, color: '#52c41a', background: '#F6FFED', borderRadius: 999, padding: '2px 8px' }}>{entry.carb_g.toFixed(1)}g carbs</span>
+          )}
+          {entry.amount_g !== 100 && (
+            <span style={{ fontSize: 12, color: '#AAB4B4', background: '#F5F5F5', borderRadius: 999, padding: '2px 8px' }}>{entry.amount_g}g</span>
+          )}
+        </div>
+        {entry.notes && (
+          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4, fontStyle: 'italic' }}>{entry.notes}</Text>
+        )}
+      </div>
+      <Popconfirm title="Remove this entry?" onConfirm={onDelete} okText="Remove" cancelText="Cancel" okButtonProps={{ danger: true }}>
+        <Button size="small" type="text" icon={<DeleteOutlined />} style={{ color: '#C0BDB8', flexShrink: 0 }} />
+      </Popconfirm>
+    </div>
+  )
+}
 
 export default function DietLogPage() {
   const { logDay, loading, currentDate, loadLogs, setCurrentDate } = useDietStore()
   const [addOpen, setAddOpen] = useState(false)
-  const [activeMeal, setActiveMeal] = useState<MealType | 'all'>('all')
+  const [addMeal, setAddMeal] = useState<MealType | undefined>()
 
-  useEffect(() => {
-    loadLogs()
-  }, [])
+  useEffect(() => { loadLogs() }, [])
 
   const handleDelete = async (id: number) => {
     await deleteLog(id)
@@ -31,118 +84,104 @@ export default function DietLogPage() {
   }
 
   const entries = logDay?.entries ?? []
-  const totals = logDay?.totals ?? DEFAULT_TOTALS
+  const totals = logDay?.totals ?? { calories: 0, protein_g: 0, fat_g: 0, carb_g: 0 }
 
-  const filtered =
-    activeMeal === 'all'
-      ? entries
-      : entries.filter((e) => e.meal_type === activeMeal)
+  const dateLabel = (() => {
+    const d = dayjs(currentDate)
+    const today = dayjs().format('YYYY-MM-DD')
+    const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD')
+    if (currentDate === today) return `Today, ${d.format('MMM D')}`
+    if (currentDate === yesterday) return `Yesterday, ${d.format('MMM D')}`
+    return d.format('ddd, MMM D')
+  })()
 
-  const mealOptions = [
-    { label: '全部', value: 'all' },
-    ...MEAL_TYPES.map((m) => ({ label: m.label, value: m.value })),
-  ]
+  const openAdd = (meal?: MealType) => { setAddMeal(meal); setAddOpen(true) }
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px' }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 24,
-        }}
-      >
-        <Title level={4} style={{ margin: 0 }}>📊 饮食日记</Title>
-        <Space>
-          <DatePicker
-            value={dayjs(currentDate)}
-            onChange={(d) => d && setCurrentDate(d.format('YYYY-MM-DD'))}
-            allowClear={false}
-            format="YYYY-MM-DD"
-          />
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setAddOpen(true)}
-          >
-            记录饮食
-          </Button>
-        </Space>
+    <div style={{ background: '#F7F3EE', minHeight: 'calc(100vh - 52px)', padding: '24px 16px 60px' }}>
+      <div style={{ maxWidth: 680, margin: '0 auto' }}>
+
+        {/* Date navigation */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <Button type="text" icon={<LeftOutlined />} onClick={() => setCurrentDate(dayjs(currentDate).subtract(1, 'day').format('YYYY-MM-DD'))} />
+          <div style={{ textAlign: 'center' }}>
+            <Text strong style={{ fontSize: 16 }}>{dateLabel}</Text>
+            {currentDate !== dayjs().format('YYYY-MM-DD') && (
+              <Button type="link" size="small" onClick={() => setCurrentDate(dayjs().format('YYYY-MM-DD'))} style={{ display: 'block', margin: '0 auto', padding: 0, height: 'auto', fontSize: 12 }}>
+                Back to today
+              </Button>
+            )}
+          </div>
+          <Button type="text" icon={<RightOutlined />} onClick={() => setCurrentDate(dayjs(currentDate).add(1, 'day').format('YYYY-MM-DD'))} />
+        </div>
+
+        {/* Macro summary */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+          <MacroCard label="Calories" value={totals.calories} max={DRI.calories} unit="kcal" color="#fa8c16" />
+          <MacroCard label="Protein" value={totals.protein_g} max={DRI.protein_g} unit="g" color={PRIMARY_COLOR} />
+          <MacroCard label="Fat" value={totals.fat_g} max={DRI.fat_g} unit="g" color="#f759ab" />
+          <MacroCard label="Carbs" value={totals.carb_g} max={DRI.carb_g} unit="g" color="#52c41a" />
+        </div>
+
+        {/* Global add button */}
+        <Button
+          type="primary" icon={<PlusOutlined />} block size="large"
+          onClick={() => openAdd(undefined)}
+          style={{ background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, borderRadius: 10, marginBottom: 20 }}
+        >
+          Add entry
+        </Button>
+
+        {/* Meal sections */}
+        <Spin spinning={loading}>
+          {MEALS.map(({ value: mealType, label, emoji, color }) => {
+            const mealEntries = entries.filter((e) => e.meal_type === mealType)
+            const mealCal = mealEntries.reduce((sum, e) => sum + e.calories, 0)
+            return (
+              <div key={mealType} style={{ marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>{emoji}</span>
+                    <Text strong style={{ fontSize: 15, color }}>{label}</Text>
+                    {mealCal > 0 && (
+                      <Text type="secondary" style={{ fontSize: 12 }}>{Math.round(mealCal)} kcal</Text>
+                    )}
+                  </div>
+                  <Button
+                    size="small" type="text" icon={<PlusOutlined />}
+                    onClick={() => openAdd(mealType)}
+                    style={{ color: PRIMARY_COLOR, fontWeight: 600 }}
+                  >
+                    Add
+                  </Button>
+                </div>
+                {mealEntries.length === 0 ? (
+                  <div
+                    onClick={() => openAdd(mealType)}
+                    style={{ border: '1.5px dashed #E8E0D5', borderRadius: 10, padding: '12px', textAlign: 'center', cursor: 'pointer' }}
+                  >
+                    <Text type="secondary" style={{ fontSize: 13 }}>+ Log your {label.toLowerCase()}</Text>
+                  </div>
+                ) : (
+                  mealEntries.map((entry) => (
+                    <EntryRow key={entry.id} entry={entry} onDelete={() => handleDelete(entry.id)} />
+                  ))
+                )}
+              </div>
+            )
+          })}
+          {entries.length === 0 && !loading && (
+            <Empty description="Nothing logged yet — add your first entry above" style={{ marginTop: 32 }} />
+          )}
+        </Spin>
       </div>
 
-      {/* 营养摄入进度 */}
-      <NutritionBar totals={totals} />
-
-      <Divider />
-
-      {/* 餐次筛选 */}
-      <Segmented
-        options={mealOptions}
-        value={activeMeal}
-        onChange={(v) => setActiveMeal(v as MealType | 'all')}
-        style={{ marginBottom: 16 }}
-      />
-
-      <Spin spinning={loading}>
-        {filtered.length === 0 ? (
-          <Empty description="今天还没有记录，点击「记录饮食」开始吧！" />
-        ) : (
-          <List
-            dataSource={filtered}
-            renderItem={(entry: FoodLogEntry) => {
-              const mealLabel = MEAL_TYPES.find((m) => m.value === entry.meal_type)?.label
-              return (
-                <List.Item
-                  key={entry.id}
-                  actions={[
-                    <Popconfirm
-                      title="删除这条记录？"
-                      onConfirm={() => handleDelete(entry.id)}
-                      okText="删除"
-                      cancelText="取消"
-                    >
-                      <Button size="small" danger icon={<DeleteOutlined />} />
-                    </Popconfirm>,
-                  ]}
-                  style={{
-                    background: '#fff',
-                    borderRadius: 8,
-                    padding: '12px 16px',
-                    marginBottom: 8,
-                    border: '1px solid #f0f0f0',
-                  }}
-                >
-                  <List.Item.Meta
-                    title={
-                      <Space>
-                        <Text strong>{entry.food_name_snapshot}</Text>
-                        <Tag color="default">{mealLabel}</Tag>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          {entry.amount_g}g
-                        </Text>
-                      </Space>
-                    }
-                    description={
-                      <Space size={16} style={{ fontSize: 12, color: '#666' }}>
-                        <span>🔥 {entry.calories.toFixed(0)} kcal</span>
-                        <span>蛋白 {entry.protein_g.toFixed(1)}g</span>
-                        <span>脂肪 {entry.fat_g.toFixed(1)}g</span>
-                        <span>碳水 {entry.carb_g.toFixed(1)}g</span>
-                      </Space>
-                    }
-                  />
-                </List.Item>
-              )
-            }}
-          />
-        )}
-      </Spin>
-
-      <FoodSearchModal
+      <AddLogModal
         open={addOpen}
+        logDate={currentDate}
+        defaultMeal={addMeal}
         onClose={() => setAddOpen(false)}
-        onAdded={() => loadLogs()}
+        onAdded={() => { setAddOpen(false); loadLogs() }}
       />
     </div>
   )
