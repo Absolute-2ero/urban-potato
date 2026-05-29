@@ -10,6 +10,8 @@ interface SearchState {
   sortMode: string
   offset: number
   limit: number
+  lat: number | null
+  lng: number | null
 
   // 结果
   results: Restaurant[]
@@ -27,6 +29,7 @@ interface SearchState {
   setPriceLevels: (levels: number[]) => void
   setSortMode: (mode: string) => void
   setOffset: (offset: number) => void
+  setLocation: (lat: number, lng: number) => void
   doSearch: (params?: Partial<SearchParams>) => Promise<void>
   reset: () => void
 }
@@ -40,6 +43,8 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   sortMode: 'default',
   offset: 0,
   limit: 20,
+  lat: null,
+  lng: null,
 
   results: [],
   total: 0,
@@ -55,9 +60,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   setPriceLevels: (priceLevels) => set({ priceLevels, offset: 0 }),
   setSortMode: (sortMode) => set({ sortMode, offset: 0 }),
   setOffset: (offset) => set({ offset }),
+  setLocation: (lat, lng) => set({ lat, lng }),
 
   doSearch: async (overrides = {}) => {
-    const { q, dietLabels, priceLevels, sortMode, offset, limit } = get()
+    const { q, dietLabels, priceLevels, sortMode, offset, limit, lat, lng } = get()
     const params: SearchParams = {
       q,
       diet_labels: dietLabels.length ? dietLabels : undefined,
@@ -65,6 +71,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       sort_mode: sortMode,
       offset,
       limit,
+      ...(lat != null && lng != null ? { lat, lng } : {}),
       ...overrides,
     }
     set({ loading: true, error: null })
@@ -88,7 +95,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   reset: () =>
     set({
       q: '', dietLabels: [], priceLevels: [], sortMode: 'default',
-      offset: 0, results: [], total: 0, facets: null,
+      offset: 0, lat: null, lng: null, results: [], total: 0, facets: null,
       spellSuggestion: null, detectedDietLabels: [], crawlTriggered: false,
       loading: false, error: null,
     }),

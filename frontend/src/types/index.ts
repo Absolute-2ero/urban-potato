@@ -73,6 +73,7 @@ export interface FoodLogCreate {
   protein_g: number
   fat_g: number
   carb_g: number
+  notes?: string
 }
 
 export interface FoodLogEntry extends FoodLogCreate {
@@ -106,6 +107,9 @@ export interface MenuItem {
   diet_labels?: DietLabel[]
   allergens?: string[]
   calories?: number
+  protein?: number
+  fat?: number
+  carbs?: number
 }
 
 export interface Restaurant {

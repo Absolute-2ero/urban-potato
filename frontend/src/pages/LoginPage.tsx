@@ -34,8 +34,8 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await register({ username: values.username, email: values.email, password: values.password })
-      message.success('注册成功，已自动登录')
-      navigate('/')
+      message.success('Account created!')
+      navigate('/onboarding')
     } catch (err: unknown) {
       const detail = (err as any)?.response?.data?.detail || '注册失败'
       message.error(detail)

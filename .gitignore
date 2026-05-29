@@ -81,3 +81,10 @@ htmlcov/
 *.bak
 *.orig
 backend/crawler/eleme_cookies.json
+
+# ── Crawler data / secrets ───────────────────────────────────────────────
+backend/*_pipeline_export.csv
+backend/analysis-ik.zip
+backend/crawler/hk/foodpanda_state.json
+backend/crawler/hk/debug_*
+backend/crawler/hk/test_pipeline_output.json

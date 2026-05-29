@@ -5,10 +5,13 @@ import {
   Row, Skeleton, Space, Table, Tag, Typography,
 } from 'antd'
 import {
-  ArrowLeftOutlined, HeartFilled, HeartOutlined, PhoneOutlined, EnvironmentOutlined,
+  ArrowLeftOutlined, HeartFilled, HeartOutlined, PhoneOutlined, EnvironmentOutlined, PlusOutlined,
 } from '@ant-design/icons'
+import { AddLogModal } from '@/components/diet/AddLogModal'
 import { getRestaurant } from '@/api/restaurants'
 import { saveRestaurant, unsaveRestaurant, getSavedRestaurants } from '@/api/diet'
+import { useAuthStore } from '@/stores/authStore'
+import { addRestaurantView } from '@/utils/history'
 import { AllergenWarning } from '@/components/common/AllergenWarning'
 import { DietBadgeGroup } from '@/components/common/DietBadge'
 import { PRICE_LEVEL_META } from '@/constants'
@@ -19,9 +22,11 @@ const { Title, Text, Paragraph } = Typography
 export default function RestaurantDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuthStore()
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null)
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
+  const [logPrefill, setLogPrefill] = useState<{ name: string; calories?: number } | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -30,6 +35,16 @@ export default function RestaurantDetailPage() {
         setRestaurant(r)
         setSaved(savedIds.includes(id))
         setLoading(false)
+        addRestaurantView(
+          {
+            id: crypto.randomUUID(),
+            restaurantId: r.restaurant_id,
+            restaurantName: r.name,
+            dishes: r.menu_items?.slice(0, 5).map((item) => item.name) ?? [],
+            timestamp: Date.now(),
+          },
+          user?.id,
+        )
       }
     )
   }, [id])
@@ -177,6 +192,20 @@ export default function RestaurantDetailPage() {
                 width: 90,
               },
               {
+                title: 'Macros',
+                key: 'macros',
+                width: 140,
+                render: (_: unknown, item: any) => {
+                  const parts = []
+                  if (item.protein) parts.push(`P:${item.protein}g`)
+                  if (item.fat) parts.push(`F:${item.fat}g`)
+                  if (item.carbs) parts.push(`C:${item.carbs}g`)
+                  return parts.length ? (
+                    <span style={{ fontSize: 11, color: '#6B7A7A' }}>{parts.join(' · ')}</span>
+                  ) : '-'
+                },
+              },
+              {
                 title: '饮食标签',
                 dataIndex: 'diet_labels',
                 key: 'diet',
@@ -185,9 +214,34 @@ export default function RestaurantDetailPage() {
                     <DietBadgeGroup labels={labels as any} maxVisible={3} />
                   ) : '-',
               },
+              {
+                title: '',
+                key: 'log',
+                width: 60,
+                render: (_: unknown, item: any) => (
+                  <Button
+                    size="small"
+                    icon={<PlusOutlined />}
+                    onClick={() => setLogPrefill({ name: item.name, calories: item.calories, protein_g: item.protein, fat_g: item.fat, carb_g: item.carbs })}
+                    style={{ fontSize: 12 }}
+                  >
+                    Log
+                  </Button>
+                ),
+              },
             ]}
           />
         </>
+      )}
+
+      {logPrefill && (
+        <AddLogModal
+          open={!!logPrefill}
+          logDate={new Date().toISOString().slice(0, 10)}
+          prefill={logPrefill}
+          onClose={() => setLogPrefill(null)}
+          onAdded={() => setLogPrefill(null)}
+        />
       )}
     </div>
   )

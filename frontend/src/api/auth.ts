@@ -12,3 +12,6 @@ export const logout = () =>
 
 export const getMe = () =>
   client.get<User>('/api/auth/me').then((r) => r.data)
+
+export const deleteAccount = () =>
+  client.delete('/api/auth/me')
