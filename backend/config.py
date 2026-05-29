@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings
+
+_ENV_FILE = Path(__file__).parent / ".env"
 
 
 class Config(BaseSettings):
@@ -29,6 +32,12 @@ class Config(BaseSettings):
     gaode_api_key: str = ""
     gaode_security_key: str = ""
 
+    # Kimi（月之暗面）
+    moonshot_api_key: str = ""
+
+    # 智谱 GLM
+    zhipu_api_key: str = ""
+
     # Session
     session_secret: str = "dev-secret-change-in-production-please"
     session_max_age: int = 14 * 24 * 3600   # 14 天
@@ -39,7 +48,7 @@ class Config(BaseSettings):
     # IR
     ranking_config_path: str = "config/ranking.yaml"
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": str(_ENV_FILE), "env_file_encoding": "utf-8"}
 
     @property
     def cors_origins(self) -> list:

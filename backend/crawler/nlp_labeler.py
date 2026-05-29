@@ -9,7 +9,7 @@ NLP 饮食标签推断器：
 
 import logging
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple  # noqa: F401
 
 from ir.synonyms import DietSynonymDict
 
@@ -46,6 +46,22 @@ _ALLERGEN_FREE_PATTERNS: List[Tuple[str, str]] = [
     (r"无大豆|soy.free", "soy"),
     (r"无坚果|nut.free", "tree_nut"),
 ]
+
+# ── 高德 POI type 段 → diet_label 直接映射（精确匹配，无需正则）────────────
+# 来源：高德 POI 分类编码表（050000 餐饮服务子类）
+_TYPE_TO_DIET: Dict[str, List[str]] = {
+    "素食餐厅":   ["vegetarian"],
+    "素食":       ["vegetarian"],
+    "纯素餐厅":   ["vegan", "vegetarian"],
+    "清真餐厅":   ["halal"],
+    "清真":       ["halal"],
+    "有机餐厅":   ["organic"],
+    "生酮餐厅":   ["keto"],
+    "无麸质餐厅": ["gluten-free"],
+    "健康餐厅":   ["low-calorie"],
+    "轻食":       ["low-calorie"],
+    "沙拉":       ["low-calorie", "vegetarian"],
+}
 
 # ── 饮食标签关键词（补充同义词词典之外的规则）────────────────────────────────
 _DIET_LABEL_PATTERNS: List[Tuple[str, str]] = [
@@ -98,8 +114,15 @@ def label_restaurant(doc: Dict[str, Any]) -> Dict[str, Any]:
     for item in doc.get("menu_items", []):
         combined_text += " " + item.get("name", "")
 
+    # 1. POI type 精确映射（高德 tags 里的分类段，最可靠）
+    type_mapped: List[str] = []
+    for tag in doc.get("tags", []):
+        type_mapped.extend(_TYPE_TO_DIET.get(tag, []))
+
+    # 2. 正则匹配（兜底，覆盖描述/菜名里的自由文本）
     diet_labels = list(set(
         doc.get("diet_labels", [])
+        + type_mapped
         + _extract_from_text(combined_text, _DIET_LABEL_PATTERNS)
     ))
     allergens = list(set(

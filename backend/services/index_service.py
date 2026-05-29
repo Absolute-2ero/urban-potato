@@ -112,9 +112,27 @@ async def rebuild_index() -> None:
     logger.info("ES index '%s' rebuilt", _INDEX)
 
 
+_BULK_CHUNK = 500   # 每批文档数，控制单次请求大小
+
+
+def _build_actions(documents: List[Dict[str, Any]]) -> List[Dict]:
+    actions: List[Dict] = []
+    for doc in documents:
+        rid = doc.get("restaurant_id") or doc.get("_id")
+        if not rid:
+            continue
+        actions.append({"index": {"_index": _INDEX, "_id": rid}})
+        if "geo" in doc and isinstance(doc["geo"], dict):
+            g = doc["geo"]
+            doc = dict(doc)
+            doc["geo"] = {"lat": g.get("lat", 0), "lon": g.get("lng", 0)}
+        actions.append(doc)
+    return actions
+
+
 async def bulk_index(documents: List[Dict[str, Any]]) -> int:
     """
-    批量写入餐厅文档。
+    批量写入餐厅文档，每批 _BULK_CHUNK 条，最后统一 refresh。
     documents: List of restaurant dicts with 'restaurant_id' field.
     返回成功索引的文档数。
     """
@@ -122,26 +140,21 @@ async def bulk_index(documents: List[Dict[str, Any]]) -> int:
         return 0
 
     es = get_es()
-    actions: List[Dict] = []
-    for doc in documents:
-        rid = doc.get("restaurant_id") or doc.get("_id")
-        if not rid:
-            continue
-        actions.append({"index": {"_index": _INDEX, "_id": rid}})
-        # geo 字段: ES geo_point 用 lat/lon，但我们存的是 {lat, lng}
-        # 转换 lng → lon
-        if "geo" in doc and isinstance(doc["geo"], dict):
-            g = doc["geo"]
-            doc = dict(doc)
-            doc["geo"] = {"lat": g.get("lat", 0), "lon": g.get("lng", 0)}
-        actions.append(doc)
+    all_actions = _build_actions(documents)
+    total_errors = 0
 
-    resp = await es.bulk(operations=actions, refresh="wait_for")
-    errors = [item for item in resp["items"] if "error" in item.get("index", {})]
-    if errors:
-        logger.warning("Bulk index had %d errors: %s", len(errors), errors[:3])
+    for i in range(0, len(all_actions), _BULK_CHUNK * 2):   # *2 因为每条文档占两个元素
+        chunk = all_actions[i : i + _BULK_CHUNK * 2]
+        resp  = await es.bulk(operations=chunk, refresh=False)
+        errs  = [item for item in resp["items"] if "error" in item.get("index", {})]
+        if errs:
+            logger.warning("Bulk chunk errors: %d  sample: %s", len(errs), errs[0])
+        total_errors += len(errs)
 
-    success = len(documents) - len(errors)
+    # 所有批次写完后统一触发一次 refresh
+    await es.indices.refresh(index=_INDEX)
+
+    success = len(documents) - total_errors
     logger.info("Bulk indexed %d/%d documents into '%s'", success, len(documents), _INDEX)
     return success
 

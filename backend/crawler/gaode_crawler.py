@@ -15,8 +15,9 @@ API 特性：
 import asyncio
 import hashlib
 import logging
-from typing import Any, Dict, List, Optional
-from urllib.parse import urlencode
+import math
+import re
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import httpx
 
@@ -28,6 +29,17 @@ _TEXT_URL   = "https://restapi.amap.com/v3/place/text"
 _AROUND_URL = "https://restapi.amap.com/v3/place/around"
 _PAGE_SIZE  = 25   # 高德单页最大 25
 _MAX_PAGES  = 40   # 每个关键词最多爬 40 页 = 1000 条
+
+# 各城市核心城区边界框（GCJ-02），格式：(lat_min, lat_max, lng_min, lng_max)
+# 只覆盖建成区；郊区/农村餐厅密度极低，意义不大
+CITY_BOUNDS: Dict[str, Tuple[float, float, float, float]] = {
+    "北京":  (39.68, 40.20, 116.00, 116.78),
+    "上海":  (30.98, 31.52, 121.10, 121.75),
+    "广州":  (22.94, 23.40, 113.05, 113.68),
+    "深圳":  (22.44, 22.76, 113.75, 114.37),
+    "成都":  (30.52, 30.80, 103.88, 104.28),
+    "杭州":  (30.12, 30.42, 119.95, 120.35),
+}
 
 # 餐饮 POI 大类（囊括所有餐厅子类型）
 _FOOD_TYPES = "050000"
@@ -81,35 +93,51 @@ def _build_params(extra: Dict[str, Any]) -> Dict[str, str]:
     return params
 
 
-# ── 单次 API 请求 ─────────────────────────────────────────────────────────────
+# ── 单次 API 请求（含限流重试）──────────────────────────────────────────────
 
-async def _get_pois(url: str, params: Dict[str, str]) -> tuple[List[Dict], int]:
+_RATE_LIMIT_CODES = {"10021", "10020", "10044"}  # CUQPS / QPS / 并发超限
+
+async def _get_pois(
+    url: str,
+    params: Dict[str, str],
+    _retries: int = 4,
+) -> tuple[List[Dict], int]:
     """
     执行一次高德 API 请求，返回 (pois, total_count)。
-    total_count 用于判断是否还有下一页。
+    遇到限流错误码（10021 等）自动指数退避重试，最多 _retries 次。
     """
-    try:
-        async with httpx.AsyncClient(timeout=15.0, trust_env=False) as client:
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            data = resp.json()
+    delay = 2.0
+    for attempt in range(_retries + 1):
+        try:
+            async with httpx.AsyncClient(timeout=15.0, trust_env=False) as client:
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                data = resp.json()
 
-        if data.get("status") != "1":
-            info = data.get("info", "unknown error")
-            infocode = data.get("infocode", "")
-            logger.warning("Gaode API error [%s]: %s", infocode, info)
+            if data.get("status") != "1":
+                infocode = str(data.get("infocode", ""))
+                info     = data.get("info", "unknown error")
+                if infocode in _RATE_LIMIT_CODES and attempt < _retries:
+                    logger.debug("Rate limited [%s], retry %d/%d in %.1fs",
+                                 infocode, attempt + 1, _retries, delay)
+                    await asyncio.sleep(delay)
+                    delay *= 2
+                    continue
+                logger.warning("Gaode API error [%s]: %s", infocode, info)
+                return [], 0
+
+            pois  = data.get("pois", []) or []
+            count = int(data.get("count", 0) or 0)
+            return pois, count
+
+        except httpx.HTTPStatusError as e:
+            logger.warning("Gaode HTTP %d: %s", e.response.status_code, url)
+            return [], 0
+        except Exception as exc:
+            logger.warning("Gaode request failed: %s", exc)
             return [], 0
 
-        pois  = data.get("pois", []) or []
-        count = int(data.get("count", 0) or 0)
-        return pois, count
-
-    except httpx.HTTPStatusError as e:
-        logger.warning("Gaode HTTP %d: %s", e.response.status_code, url)
-        return [], 0
-    except Exception as exc:
-        logger.warning("Gaode request failed: %s", exc)
-        return [], 0
+    return [], 0
 
 
 # ── 规范化 POI → 内部格式 ────────────────────────────────────────────────────
@@ -186,6 +214,11 @@ def normalize_poi(poi: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     except (ValueError, TypeError):
         rating_count = None
 
+    # 标签：POI type 层级各段 + tag 字段（供 nlp_labeler 使用）
+    tags: List[str] = [s.strip() for s in type_str.split(";") if s.strip()]
+    raw_tag = poi.get("tag") or biz.get("tag") or ""
+    tags += [t.strip() for t in re.split(r"[,，;；]", raw_tag) if t.strip()]
+
     return {
         "restaurant_id": f"gaode_{poi.get('id', '')}",
         "name":          name,
@@ -197,6 +230,7 @@ def normalize_poi(poi: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "rating":        rating,
         "rating_count":  rating_count,
         "geo":           {"lat": lat, "lng": lng},
+        "tags":          tags,
         "diet_labels":   [],      # 由 nlp_labeler 填充
         "allergens":     [],
         "allergen_free": [],
@@ -348,5 +382,144 @@ async def crawl_city(
     logger.info(
         "Gaode crawl_city: city=%s keywords=%d → %d unique restaurants",
         city_zh, len(keywords), len(all_docs),
+    )
+    return all_docs
+
+
+# ── 网格扫描（全量覆盖）──────────────────────────────────────────────────────
+
+def _grid_points(
+    lat_min: float, lat_max: float,
+    lng_min: float, lng_max: float,
+    radius_m: int = 1500,
+) -> Iterator[Tuple[float, float]]:
+    """
+    生成覆盖边界框的网格坐标序列。
+    步长 = radius * √2，相邻圆圈恰好相切于对角线上，保证无盲区。
+    """
+    # 1° 纬度 ≈ 111 km；1° 经度 ≈ 111 * cos(lat) km
+    mid_lat = (lat_min + lat_max) / 2
+    step_lat = (radius_m * math.sqrt(2)) / 111_000
+    step_lng = (radius_m * math.sqrt(2)) / (111_000 * math.cos(math.radians(mid_lat)))
+
+    lat = lat_min
+    while lat <= lat_max + step_lat:
+        lng = lng_min
+        while lng <= lng_max + step_lng:
+            yield round(lat, 6), round(lng, 6)
+            lng += step_lng
+        lat += step_lat
+
+
+async def _search_grid_cell(
+    lat: float, lng: float,
+    radius_m: int,
+    sem: asyncio.Semaphore,
+    seen_ids: set,
+) -> List[Dict[str, Any]]:
+    """搜索单个网格格心，返回该格内的新 POI（已全局去重）。"""
+    async with sem:
+        results: List[Dict[str, Any]] = []
+        for page in range(1, 5):   # 每格最多 4 页 = 100 条
+            params = _build_params({
+                "location":   f"{lng},{lat}",
+                "radius":     radius_m,
+                "types":      _FOOD_TYPES,
+                "offset":     _PAGE_SIZE,
+                "page":       page,
+                "extensions": "all",
+                "sortrule":   "distance",
+            })
+            pois, total = await _get_pois(_AROUND_URL, params)
+            for poi in pois:
+                pid = poi.get("id")
+                if pid and pid not in seen_ids:
+                    seen_ids.add(pid)
+                    doc = normalize_poi(poi)
+                    if doc:
+                        results.append(doc)
+
+            if not pois or len(pois) < _PAGE_SIZE:
+                break   # 不足一页，无需继续翻页
+
+            await asyncio.sleep(0.5)
+
+        return results
+
+
+async def crawl_city_grid(
+    city: str,
+    radius_m: int = 1500,
+    concurrency: int = 2,
+    batch_size: int = 1000,
+    batch_cb=None,
+    progress_cb=None,
+) -> List[Dict[str, Any]]:
+    """
+    网格扫描爬取整座城市，覆盖率远高于关键词搜索。
+
+    参数
+    ----
+    city        : 城市中文名（须在 CITY_BOUNDS 中）或英文名
+    radius_m    : 单格搜索半径（米），默认 1500
+    concurrency : 同时发起的请求数，默认 2（高德免费 CUQPS=2）
+    batch_size  : 积累到此数量后调用 batch_cb，默认 1000
+    batch_cb    : async callable(docs)，每批新文档就调用一次（用于边爬边写）
+    progress_cb : 可选回调 (done, total, found)，用于进度显示
+    """
+    if not cfg.gaode_api_key:
+        logger.warning("GAODE_API_KEY not set, skipping grid crawl")
+        return []
+
+    city_zh = CITY_NAMES.get(city.lower(), city)
+    bounds  = CITY_BOUNDS.get(city_zh)
+    if bounds is None:
+        logger.error("No bounds defined for city=%s, add it to CITY_BOUNDS", city_zh)
+        return []
+
+    points   = list(_grid_points(*bounds, radius_m=radius_m))
+    total    = len(points)
+    seen_ids: set = set()
+    all_docs: List[Dict[str, Any]] = []
+    pending:  List[Dict[str, Any]] = []   # 待 flush 的批次
+    sem      = asyncio.Semaphore(concurrency)
+
+    logger.info(
+        "Grid crawl city=%s radius=%dm → %d cells (concurrency=%d)",
+        city_zh, radius_m, total, concurrency,
+    )
+
+    tasks = [
+        _search_grid_cell(lat, lng, radius_m, sem, seen_ids)
+        for lat, lng in points
+    ]
+
+    done = 0
+    for coro in asyncio.as_completed(tasks):
+        docs = await coro
+        all_docs.extend(docs)
+        pending.extend(docs)
+        done += 1
+
+        # 积累够一批就 flush
+        if batch_cb and len(pending) >= batch_size:
+            await batch_cb(pending)
+            pending.clear()
+
+        if done % 50 == 0 or done == total:
+            logger.info(
+                "Grid crawl %s: %d/%d cells, %d restaurants so far",
+                city_zh, done, total, len(all_docs),
+            )
+        if progress_cb:
+            progress_cb(done, total, len(all_docs))
+
+    # flush 剩余
+    if batch_cb and pending:
+        await batch_cb(pending)
+
+    logger.info(
+        "Grid crawl done: city=%s → %d unique restaurants",
+        city_zh, len(all_docs),
     )
     return all_docs
