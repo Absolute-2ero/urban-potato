@@ -112,6 +112,13 @@ export interface MenuItem {
   carbs?: number
 }
 
+export type Confidence = 'high' | 'medium' | 'low'
+
+export interface LabelWithConfidence {
+  label: string
+  confidence: Confidence
+}
+
 export interface Restaurant {
   restaurant_id: string
   name: string
@@ -126,6 +133,10 @@ export interface Restaurant {
   diet_labels: DietLabel[]
   allergens: string[]
   allergen_free: string[]
+  // 带置信度的详细标签（由 relabel_from_reviews 写入）
+  diet_labels_detail?: LabelWithConfidence[]
+  allergens_detail?: LabelWithConfidence[]
+  allergen_free_detail?: LabelWithConfidence[]
   images?: string[]
   menu_items?: MenuItem[]
   // 排序附加字段
@@ -145,6 +156,9 @@ export interface SearchParams {
   q?: string
   diet_labels?: DietLabel[]
   price_levels?: number[]
+  cuisine_types?: string[]
+  allergen_free_required?: string[]
+  min_rating?: number
   lat?: number
   lng?: number
   radius_km?: number

@@ -20,7 +20,7 @@ from database import (
 )
 from db import init_sqlite_schema
 from middleware.auth_middleware import RequestLogMiddleware
-from routers import auth, diet, feedback, food, internal, restaurants, search
+from routers import auth, cities, diet, feedback, food, internal, restaurants, search
 from services.index_service import ensure_index
 from services.search_service import init_search_components
 
@@ -121,6 +121,7 @@ app.add_middleware(RequestLogMiddleware)
 
 # ── 路由注册 ──────────────────────────────────────────────────────────────────
 app.include_router(auth.router)
+app.include_router(cities.router)
 app.include_router(food.router)
 app.include_router(diet.router)
 app.include_router(search.router)

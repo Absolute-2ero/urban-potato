@@ -116,7 +116,7 @@ export function RestaurantGroupCard({ restaurant: r, activeDietLabels = [], quer
 
             {r.diet_labels.length > 0 && (
               <div style={{ marginTop: 6 }}>
-                <DietBadgeGroup labels={r.diet_labels} maxVisible={4} onLabelClick={onDietClick} />
+                <DietBadgeGroup labels={r.diet_labels} labelsDetail={r.diet_labels_detail} maxVisible={4} onLabelClick={onDietClick} />
               </div>
             )}
           </div>

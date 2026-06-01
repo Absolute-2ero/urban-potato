@@ -12,6 +12,7 @@ interface SearchState {
   limit: number
   lat: number | null
   lng: number | null
+  radiusKm: number | null
 
   // 结果
   results: Restaurant[]
@@ -30,6 +31,8 @@ interface SearchState {
   setSortMode: (mode: string) => void
   setOffset: (offset: number) => void
   setLocation: (lat: number, lng: number) => void
+  clearLocation: () => void
+  setRadiusKm: (km: number | null) => void
   doSearch: (params?: Partial<SearchParams>) => Promise<void>
   reset: () => void
 }
@@ -45,6 +48,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   limit: 20,
   lat: null,
   lng: null,
+  radiusKm: null,
 
   results: [],
   total: 0,
@@ -61,9 +65,11 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   setSortMode: (sortMode) => set({ sortMode, offset: 0 }),
   setOffset: (offset) => set({ offset }),
   setLocation: (lat, lng) => set({ lat, lng }),
+  clearLocation: () => set({ lat: null, lng: null }),
+  setRadiusKm: (radiusKm) => set({ radiusKm, offset: 0 }),
 
   doSearch: async (overrides = {}) => {
-    const { q, dietLabels, priceLevels, sortMode, offset, limit, lat, lng } = get()
+    const { q, dietLabels, priceLevels, sortMode, offset, limit, lat, lng, radiusKm } = get()
     const params: SearchParams = {
       q,
       diet_labels: dietLabels.length ? dietLabels : undefined,
@@ -72,6 +78,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
       offset,
       limit,
       ...(lat != null && lng != null ? { lat, lng } : {}),
+      ...(radiusKm != null ? { radius_km: radiusKm } : {}),
       ...overrides,
     }
     set({ loading: true, error: null })

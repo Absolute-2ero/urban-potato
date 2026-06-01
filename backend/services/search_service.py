@@ -34,6 +34,9 @@ def _build_es_query(
     tokens: List[str],
     diet_labels: List[str],
     price_levels: Optional[List[int]],
+    cuisine_types: Optional[List[str]],
+    allergen_free_required: Optional[List[str]],
+    min_rating: Optional[float],
     geo: Optional[Tuple[float, float]],
     geo_radius_km: float,
     from_: int,
@@ -71,6 +74,27 @@ def _build_es_query(
     # ── 价格档次过滤 ─────────────────────────────────────────────────────────
     if price_levels:
         filter_clauses.append({"terms": {"price_level": price_levels}})
+
+    # ── 菜系/类型过滤 ────────────────────────────────────────────────────────
+    if cuisine_types:
+        filter_clauses.append({
+            "bool": {
+                "should": [
+                    {"match": {"cuisine_type": ct}} for ct in cuisine_types
+                ],
+                "minimum_should_match": 1,
+            }
+        })
+
+    # ── 过敏原排除 ───────────────────────────────────────────────────────────
+    if allergen_free_required:
+        filter_clauses.append({
+            "bool": {"must_not": {"terms": {"allergens": allergen_free_required}}}
+        })
+
+    # ── 最低评分过滤 ─────────────────────────────────────────────────────────
+    if min_rating is not None:
+        filter_clauses.append({"range": {"rating": {"gte": min_rating}}})
 
     # ── 地理位置过滤 ─────────────────────────────────────────────────────────
     if geo:
@@ -162,6 +186,9 @@ async def search(
         tokens=search_tokens,
         diet_labels=active_diet_labels,
         price_levels=params.price_levels,
+        cuisine_types=params.cuisine_types or [],
+        allergen_free_required=params.allergen_free_required or [],
+        min_rating=params.min_rating,
         geo=geo,
         geo_radius_km=params.radius_km or 5.0,
         from_=params.offset,

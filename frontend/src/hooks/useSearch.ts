@@ -11,29 +11,38 @@ export function useSearchSync() {
   const [urlParams, setUrlParams] = useSearchParams()
   const {
     q, dietLabels, priceLevels, sortMode, offset, limit,
-    setQ, setDietLabels, setPriceLevels, setSortMode, setOffset,
+    setQ, setDietLabels, setPriceLevels, setSortMode, setOffset, setRadiusKm,
     doSearch,
   } = useSearchStore()
 
-  // URL → Store（初次 + 后退/前进）
+  // URL → Store + 立即搜索（合并为一个 effect 避免竞争条件）
+  // 问题：若分两个 effect，setDietLabels 是异步的，doSearch 调用时 store 里
+  // 还是旧值，导致导航过来时标签没有生效。
+  // 解决：解析完 URL 后直接把值作为 override 传给 doSearch。
   useEffect(() => {
-    const urlQ = urlParams.get('q') || ''
-    const urlDiet = (urlParams.getAll('diet') as DietLabel[]) || []
-    const urlPrice = urlParams.getAll('price').map(Number)
-    const urlSort = urlParams.get('sort') || 'default'
-    const urlOffset = parseInt(urlParams.get('offset') || '0', 10)
+    const urlQ        = urlParams.get('q') || ''
+    const urlDiet     = (urlParams.getAll('diet') as DietLabel[]) || []
+    const urlPrice    = urlParams.getAll('price').map(Number)
+    const urlSort     = urlParams.get('sort') || 'default'
+    const urlOffset   = parseInt(urlParams.get('offset') || '0', 10)
+    const urlRadiusKm = urlParams.get('radius_km') ? Number(urlParams.get('radius_km')) : null
 
     setQ(urlQ)
     setDietLabels(urlDiet)
     setPriceLevels(urlPrice)
     setSortMode(urlSort)
     setOffset(urlOffset)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlParams.toString()])
+    setRadiusKm(urlRadiusKm)
 
-  // Store 状态变化后触发搜索（由 URL 变化驱动，避免死循环）
-  useEffect(() => {
-    doSearch()
+    // 直接把解析好的值传给 doSearch，不依赖 store 异步更新
+    doSearch({
+      q:            urlQ,
+      diet_labels:  urlDiet.length ? urlDiet : undefined,
+      price_levels: urlPrice.length ? urlPrice : undefined,
+      sort_mode:    urlSort,
+      offset:       urlOffset,
+      ...(urlRadiusKm != null ? { radius_km: urlRadiusKm } : {}),
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlParams.toString()])
 

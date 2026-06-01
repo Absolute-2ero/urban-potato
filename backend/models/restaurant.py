@@ -64,6 +64,9 @@ class SearchParams(BaseModel):
     q: str = ""
     diet_labels: List[str] = []
     price_levels: List[int] = []
+    cuisine_types: List[str] = []       # 菜系/餐厅类型过滤（中文，如"火锅"）
+    allergen_free_required: List[str] = []  # 必须不含的过敏原（如 peanut/shellfish）
+    min_rating: Optional[float] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
     radius_km: Optional[float] = 5.0

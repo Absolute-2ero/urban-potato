@@ -1,10 +1,14 @@
 import axios from 'axios'
 import { message } from 'antd'
+import qs from 'qs'
 
 const client = axios.create({
   baseURL: '/',
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
+  // FastAPI 期望数组参数为重复形式：diet_labels=a&diet_labels=b
+  // Axios 默认序列化为 diet_labels[]=a，FastAPI 无法识别
+  paramsSerializer: (params) => qs.stringify(params, { arrayFormat: 'repeat' }),
 })
 
 client.interceptors.response.use(

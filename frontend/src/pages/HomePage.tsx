@@ -94,6 +94,7 @@ export default function HomePage() {
     filters.dietLabels.forEach((d) => params.append('diet', d))
     filters.priceLevels.forEach((p) => params.append('price', String(p)))
     if (filters.sortMode !== 'default') params.set('sort', filters.sortMode)
+    if (filters.maxDistanceKm != null) params.set('radius_km', String(filters.maxDistanceKm))
     navigate(`/search?${params.toString()}`)
   }
 
@@ -114,6 +115,9 @@ export default function HomePage() {
         >
           MacroBite
         </Title>
+        <Text style={{ fontSize: 15, color: '#A0AFAF', display: 'block', marginBottom: 4 }}>
+          列位诸公，今天吃什么？
+        </Text>
         <Text style={{ fontSize: 17, color: '#6B7A7A', display: 'block', marginBottom: 32 }}>
           Find the right macros for every bite
         </Text>

@@ -7,6 +7,7 @@ import { FilterBar, FilterState, EMPTY_FILTERS } from '@/components/search/Filte
 import { RestaurantGroupCard } from '@/components/restaurant/RestaurantGroupCard'
 import { useSearchSync } from '@/hooks/useSearch'
 import { useSearchStore } from '@/stores/searchStore'
+import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { addSearchRecord } from '@/utils/history'
 import { fetchCities } from '@/api/cities'
@@ -30,7 +31,7 @@ export default function SearchPage() {
   const {
     results, total, facets, loading, error,
     spellSuggestion, detectedDietLabels, crawlTriggered,
-    doSearch, setLocation,
+    doSearch, setLocation, clearLocation, setRadiusKm,
   } = useSearchStore()
   const { user } = useAuthStore()
 
@@ -42,20 +43,23 @@ export default function SearchPage() {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const lastRecordedRef = useRef('')
 
-  // Local-only filter state (not URL-synced; backend extension needed)
+  const [urlParams] = useSearchParams()
+
+  // Local-only filter state — maxDistanceKm 从 URL 初始化，其余本地管理
   const [localFilters, setLocalFilters] = useState<Omit<FilterState, 'dietLabels' | 'priceLevels' | 'sortMode'>>({
     cuisineTypes: [],
     foodTypes: [],
     calorieRange: null,
     nutritionLabels: [],
     minRating: null,
-    maxDistanceKm: null,
+    maxDistanceKm: urlParams.get('radius_km') ? Number(urlParams.get('radius_km')) : null,
     extraDietRestrictions: [],
     allergyRestrictions: [],
     priceRange: null,
   })
 
   useEffect(() => {
+    clearLocation()  // 不继承 HomePage 设置的坐标，避免搜索结果被意外 geo 过滤
     setLocAvailable('geolocation' in navigator)
     fetchCities()
       .then((list) => {
@@ -113,6 +117,73 @@ export default function SearchPage() {
   // Combined filter state (URL-synced + local)
   const filters: FilterState = { dietLabels, priceLevels, sortMode, ...localFilters }
 
+  // allergyRestrictions 前端值 → 后端 allergens 字段名
+  const ALLERGY_TO_ALLERGEN: Record<string, string> = {
+    'peanut-free': 'peanut',
+    'seafood-free': 'shellfish',
+    'soy-free': 'soy',
+    'dairy-free': 'dairy',
+    'gluten-free': 'gluten',
+  }
+
+  // 前端 foodType/cuisine 枚举值 → 后端 cuisine_type 中文字段
+  const FOOD_TYPE_TO_ZH: Record<string, string> = {
+    fast_food: '快餐', street_food: '小吃', bbq: '烧烤', hotpot: '火锅',
+    buffet: '自助餐', noodles: '面食', congee: '粥', dumplings: '饺子',
+    korean_bbq: '烤肉',
+  }
+  const CUISINE_TO_ZH: Record<string, string> = {
+    sichuan: '川菜', cantonese: '粤菜', hunan: '湘菜', shandong: '鲁菜',
+    jiangsu: '苏菜', zhejiang: '浙菜', fujian: '闽菜', anhui: '徽菜',
+  }
+  // nutritionLabels → diet_labels
+  const NUTRITION_TO_DIET: Record<string, string> = {
+    low_fat: 'low-calorie', low_sugar: 'low-calorie',
+    low_sodium: 'low-sodium', no_added_oil: 'low-calorie',
+  }
+
+  // 把当前所有本地 filters 转成后端参数，可传入增量 patch 覆盖
+  const buildLocalOverrides = (
+    patch: Partial<typeof localFilters> = {},
+    overrideDietLabels?: DietLabel[],
+  ) => {
+    const next = { ...localFilters, ...patch }
+    const base = overrideDietLabels ?? dietLabels
+    const cuisineZh = [
+      ...next.foodTypes.map((v) => FOOD_TYPE_TO_ZH[v]).filter(Boolean),
+      ...next.cuisineTypes.map((v) => CUISINE_TO_ZH[v]).filter(Boolean),
+    ]
+    const extraDiet = next.nutritionLabels.map((v) => NUTRITION_TO_DIET[v]).filter(Boolean)
+    const allergenFree = next.allergyRestrictions
+      .map((v) => ALLERGY_TO_ALLERGEN[v])
+      .filter(Boolean)
+    return {
+      ...(cuisineZh.length ? { cuisine_types: cuisineZh } : { cuisine_types: undefined }),
+      ...((extraDiet.length || base.length) ? { diet_labels: [...base, ...extraDiet] } : {}),
+      ...(allergenFree.length ? { allergen_free_required: allergenFree } : { allergen_free_required: undefined }),
+      ...(next.minRating != null ? { min_rating: next.minRating } : { min_rating: undefined }),
+      ...(next.maxDistanceKm != null ? { radius_km: next.maxDistanceKm } : {}),
+    }
+  }
+
+  // useSearchSync 里 doSearch 不知道本地 filters，在这里补上
+  // 每次 URL 变化（URL 同步的标签改变）后，重新搜索时合并本地 filters
+  const localFiltersRef = useRef(localFilters)
+  localFiltersRef.current = localFilters
+
+  useEffect(() => {
+    // URL 变化后 useSearchSync 已触发了一次 doSearch，但没带本地 filters
+    // 用 setTimeout 0 让 useSearchSync 的 doSearch 先跑，再补一次带本地 filters 的调用
+    const id = setTimeout(() => {
+      const overrides = buildLocalOverrides({}, undefined)
+      const hasLocal = (overrides.cuisine_types?.length ?? 0) > 0
+        || (overrides.min_rating != null)
+      if (hasLocal) doSearch(overrides)
+    }, 0)
+    return () => clearTimeout(id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, dietLabels.join(','), priceLevels.join(','), sortMode])
+
   const handleFilterChange = (updates: Partial<FilterState>) => {
     const urlPatch: Parameters<typeof push>[0] = {}
     const localPatch: Partial<typeof localFilters> = {}
@@ -124,8 +195,17 @@ export default function SearchPage() {
       else (localPatch as any)[key] = value
     }
 
-    if (Object.keys(urlPatch).length > 0) push({ ...urlPatch, offset: 0 })
-    if (Object.keys(localPatch).length > 0) setLocalFilters((prev) => ({ ...prev, ...localPatch }))
+    if (Object.keys(urlPatch).length > 0) {
+      // URL 变化会触发 useSearchSync → doSearch，上面的 useEffect 会补本地 filters
+      push({ ...urlPatch, offset: 0 })
+    }
+    if (Object.keys(localPatch).length > 0) {
+      const next = { ...localFilters, ...localPatch }
+      setLocalFilters(next)
+      if ('maxDistanceKm' in localPatch) setRadiusKm(localPatch.maxDistanceKm ?? null)
+      // 本地 filter 变化立刻触发搜索，传入所有当前本地 filters + patch
+      doSearch(buildLocalOverrides(localPatch))
+    }
   }
 
   const handleCityChange = (id: string) => {
@@ -249,7 +329,8 @@ export default function SearchPage() {
 
         {error && <Alert type="error" message={`Search failed: ${error}`} style={{ marginBottom: 16 }} />}
 
-        <Spin spinning={loading}>
+        {/* 有已有结果时不用 Spin 遮罩，避免重新搜索时内容闪黑 */}
+        <Spin spinning={loading && rankedResults.length === 0}>
           {rankedResults.length === 0 && !loading ? (
             <Empty
               style={{ marginTop: 48 }}

@@ -61,9 +61,10 @@ const SORT_OPTIONS = [
 
 const DISTANCE_OPTIONS = [
   { value: 0.5, label: '< 500m' },
-  { value: 1, label: '< 1 km' },
-  { value: 3, label: '< 3 km' },
-  { value: 5, label: '< 5 km' },
+  { value: 1,   label: '< 1 km' },
+  { value: 3,   label: '< 3 km' },
+  { value: 5,   label: '< 5 km' },
+  { value: 10,  label: '< 10 km' },
 ]
 
 const DIET_RESTRICTION_OPTIONS: {
@@ -910,7 +911,7 @@ export function FilterBar({
           )}
           {/* Distance (teal) */}
           {filters.maxDistanceKm !== null && (
-            <ActiveChip label={`📍 ${DISTANCE_OPTIONS.find((d) => d.value === filters.maxDistanceKm)?.label}`} color="#00838F" bg="#E0F7FA"
+            <ActiveChip label={`📍 ${DISTANCE_OPTIONS.find((d) => d.value === filters.maxDistanceKm)?.label ?? `< ${filters.maxDistanceKm} km`}`} color="#00838F" bg="#E0F7FA"
               onRemove={() => onFilterChange({ maxDistanceKm: null })} />
           )}
           {/* Rating (amber) */}

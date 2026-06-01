@@ -18,7 +18,39 @@
       "Bash(python -m playwright install chromium)",
       "Bash(python -c \"import bs4; print\\('bs4', bs4.__version__\\)\")",
       "Bash(python -c \"import httpx; print\\('httpx ok'\\)\")",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('backend/crawler/dianping_login.py'\\).read\\(\\)\\); print\\('ok'\\)\")",
+      "Bash(python -c \"import ast, pathlib; ast.parse\\(pathlib.Path\\('backend/crawler/gaode_crawler.py'\\).read_text\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -c \"import ast, pathlib; ast.parse\\(pathlib.Path\\('backend/crawler/enrich_reviews.py'\\).read_text\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(cat /proc/2540021/status | grep -E \"^\\(State|VmRSS\\)\" && ls -la /proc/2540021/fd | wc -l)",
+      "Read(//proc/2540021/**)",
+      "Read(//proc/2540021/fd/**)",
+      "Bash(kill -0 2540021)",
+      "Bash(python -c \"import sys; sys.path.insert\\(0,'backend'\\); from elasticsearch import Elasticsearch; print\\(Elasticsearch\\('http://localhost:9200'\\).count\\(index='restaurants'\\)['count']\\)\")",
+      "Bash(python -c \"import ast, pathlib; ast.parse\\(pathlib.Path\\('backend/services/index_service.py'\\).read_text\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(nohup python -m crawler.enrich_reviews --concurrency 5)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(kill 2621867)",
+      "Bash(nohup python -m crawler.enrich_reviews --concurrency 3)",
+      "Bash(kill 2622804)",
+      "Bash(kill 2621868 2622805 2624681)",
+      "Bash(pkill -f \"enrich_reviews\")",
+      "Bash(awk '{print $2}')",
+      "Bash(xargs kill -9)",
+      "Bash(kill 2625188)",
+      "Bash(pkill -f enrich_reviews)",
+      "Bash(awk '{print $2, $11, $12}')",
+      "Bash(git prune *)",
+      "Bash(git gc *)",
+      "Bash(git merge *)",
+      "Bash(python3 -c \"import sys,json; s=json.load\\(sys.stdin\\); print\\(json.dumps\\(s.get\\('scripts',{}\\), indent=2\\)\\)\")",
+      "Bash(npm run dev -- --host 0.0.0.0 --port 5173 > /tmp/frontend.log 2>&1 & *)",
+      "Bash(xargs cat)",
+      "Bash(npm list *)",
+      "Bash(npm install *)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
     ]
   }
 }
