@@ -70,6 +70,12 @@ class SearchParams(BaseModel):
     sort_mode: str = "default"
     offset: int = 0
     limit: int = 20
+    min_rating: Optional[float] = None
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    min_calories: Optional[int] = None
+    max_calories: Optional[int] = None
+    min_protein_g: Optional[float] = None
 
 
 class QueryParsed(BaseModel):
@@ -85,6 +91,8 @@ class SearchResponse(BaseModel):
     facets: Facets
     spell_suggestion: Optional[str] = None
     detected_diet_labels: List[str] = []
+    detected_cuisine_type: Optional[str] = None
+    landmark_name: Optional[str] = None
     query_tokens: List[str] = []
     sort_mode: str = "default"
     offset: int = 0

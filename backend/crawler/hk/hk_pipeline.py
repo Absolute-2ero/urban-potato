@@ -385,6 +385,14 @@ async def main_async(args: argparse.Namespace) -> None:
             await run_audit()
             return
 
+        if args.clean:
+            from crawler.hk.hk_cleaner import run_clean
+            dropped, updated, removed, renamed = await run_clean()
+            print(f"Clean done: {dropped} empty restaurants dropped, {updated} updated — {removed} items removed, {renamed} names fixed")
+            if dropped:
+                print("Re-run --foodpanda/--openrice --show-browser --resume to re-crawl the dropped restaurants")
+            return
+
         if args.geocode:
             n = await run_geocode()
             print(f"Geocoded: {n} restaurants")
@@ -452,13 +460,16 @@ Recommended workflow:
     py -3.12 -m crawler.hk.hk_pipeline --openrice --max-scroll 200
     py -3.12 -m crawler.hk.hk_pipeline --foodpanda --show-browser --max-scroll 200
 
-  # Step 2 — geocode addresses:
-    py -3.12 -m crawler.hk.hk_pipeline --geocode
+  # Step 2 — clean menu item names / remove duplicates within each restaurant:
+    py -3.12 -m crawler.hk.hk_pipeline --clean
 
-  # Step 3 — merge duplicates across sources:
+  # Step 3 — merge duplicate restaurants across sources:
     py -3.12 -m crawler.hk.hk_pipeline --dedup
 
-  # Step 4 — NLP + LLM labeling + ES index:
+  # Step 4 — geocode addresses:
+    py -3.12 -m crawler.hk.hk_pipeline --geocode
+
+  # Step 5 — NLP + LLM labeling + ES index:
     py -3.12 -m crawler.hk.hk_pipeline --retry-llm
 
   # Check coverage:
@@ -467,6 +478,7 @@ Recommended workflow:
     )
     p.add_argument("--openrice",     action="store_true", help="Crawl OpenRice HK")
     p.add_argument("--foodpanda",    action="store_true", help="Crawl Foodpanda HK")
+    p.add_argument("--clean",        action="store_true", help="Drop 0-menu restaurants + clean item names and remove duplicates")
     p.add_argument("--geocode",      action="store_true", help="Geocode restaurants via ALS + Nominatim")
     p.add_argument("--dedup",        action="store_true", help="Merge duplicate records across sources")
     p.add_argument("--retry-llm",    action="store_true", dest="retry_llm",

@@ -39,6 +39,28 @@ export function clearPrefs(userId: string | number): void {
   localStorage.removeItem(prefsKey(userId))
 }
 
+// Map old stored values to current diet label keys
+const NUTRITION_MAP: Record<string, string> = {
+  low_fat:      'low-fat',
+  low_sugar:    'low-sugar',
+  low_sodium:   'low-sodium',
+  no_added_oil: 'low-oil',
+  high_protein: 'high-protein',
+}
+const ALLERGY_MAP: Record<string, string> = {
+  no_spicy: 'no-spicy',
+}
+
+/** Return all saved preferences merged into a single dietLabels array. */
+export function prefsToDietLabels(prefs: SavedPrefs): string[] {
+  const mapped = [
+    ...prefs.dietLabels,
+    ...prefs.nutritionLabels.map(v => NUTRITION_MAP[v] ?? v),
+    ...prefs.allergyRestrictions.map(v => ALLERGY_MAP[v] ?? v),
+  ]
+  return [...new Set(mapped)]
+}
+
 export function loadGoals(userId: string | number): DailyGoals {
   try {
     const s = localStorage.getItem(goalsKey(userId))

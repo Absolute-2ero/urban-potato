@@ -58,7 +58,7 @@ export function ResultCard({ restaurant: r, onDietClick }: Props) {
           {/* 标题行 */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Title level={5} style={{ margin: 0, lineHeight: 1.3 }} ellipsis>
-              {r.name}
+              {r.name_en || r.name}
             </Title>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 8 }}>
               {r.rating && (

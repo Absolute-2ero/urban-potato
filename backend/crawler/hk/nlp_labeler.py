@@ -39,15 +39,27 @@ _DIET_PATTERNS: List[Tuple[str, str]] = [
     (r"low.carb|low carb|低碳水|低碳", "low-carb"),
     # Low-calorie
     (r"low.cal|low cal|low.calorie|low calorie|低卡|低熱量|低热量|減脂|减脂|控卡", "low-calorie"),
+    # Low-fat
+    (r"low.fat|low fat|少脂|低脂|脫脂|脱脂", "low-fat"),
+    # Low-sugar
+    (r"low.sugar|low sugar|無糖|无糖|少糖|減糖|减糖|糖分低|不加糖", "low-sugar"),
+    # Low-oil
+    (r"low.oil|low oil|少油|減油|减油|清淡|少油少鹽|少油少盐", "low-oil"),
     # Low-sodium
     (r"low.sodium|low sodium|少鹽|少盐|減鹽|减盐|低鈉|低钠", "low-sodium"),
     # Nut-free
     (r"nut.free|nut free|無堅果|无坚果", "nut-free"),
+    # Peanut-free
+    (r"peanut.free|no peanut|無花生|无花生|不含花生", "peanut-free"),
     # Shellfish-free
     (r"shellfish.free|shellfish free|無貝類|无贝类", "shellfish-free"),
+    # Seafood-free (broader: no fish, shellfish, or any seafood)
+    (r"seafood.free|seafood free|no seafood|無海鮮|无海鲜|不含海鮮|不含海鲜", "seafood-free"),
     # Soy-free
     (r"soy.free|soy free|無大豆|无大豆", "soy-free"),
-    # Light meal (HK specific: 輕食 / 健康餐 / salad bars common in HK)
+    # No-spicy
+    (r"no.spic|not spic|non.spic|mild|不辣|唔辣|不辛辣|無辣|无辣|少辣|微辣以下", "no-spicy"),
+    # Light meal
     (r"light meal|light food|輕食|轻食|健康餐|沙律|salad|健身餐|減肥餐|减肥餐", "light-meal"),
 ]
 
@@ -74,6 +86,8 @@ _ALLERGEN_FREE_PATTERNS: List[Tuple[str, str]] = [
     (r"soy.free|無大豆|无大豆", "soy"),
     (r"nut.free|無堅果|无坚果", "tree_nut"),
     (r"egg.free|無蛋|无蛋", "egg"),
+    (r"seafood.free|no seafood|無海鮮|无海鲜", "fish"),
+    (r"shellfish.free|無貝類|无贝类", "shellfish"),
 ]
 
 # ── Cuisine → diet inference ──────────────────────────────────────────────────

@@ -1,0 +1,20 @@
+{
+  "japanese":       ["japanese", "jp food", "ramen", "sushi", "udon", "soba", "tempura", "日式", "日本料理", "日本菜", "日料", "拉面", "寿司"],
+  "korean":         ["korean", "kbbq", "korean bbq", "bibimbap", "kimchi", "bulgogi", "韩餐", "韩式", "韩国料理", "韩国菜", "韩式烤肉"],
+  "singaporean":    ["singaporean", "singapore", "singapore food", "hainanese", "laksa", "char kway teow", "nasi lemak", "chicken rice"],
+  "pakistani":      ["pakistani", "pakistan", "desi food", "halal desi", "desi"],
+  "thai":           ["thai", "thailand", "thai food", "pad thai", "tom yum", "green curry", "泰餐", "泰式", "泰国菜", "泰国料理"],
+  "italian":        ["italian", "italian food", "pizza", "pasta", "risotto", "lasagna", "意餐", "意大利菜", "意大利料理", "披萨", "意面", "意大利面"],
+  "american":       ["american", "american food", "burger", "bbq", "hot dog", "fried chicken", "美式", "汉堡", "美式快餐", "美式料理"],
+  "indian":         ["indian", "indian food", "curry", "naan", "biryani", "tandoor", "印度", "咖喱", "印度餐", "印度料理"],
+  "vietnamese":     ["vietnamese", "vietnam", "vietnam food", "pho", "banh mi", "vietnamese food", "越南", "越南菜", "越南料理", "越南河粉", "越南粉"],
+  "mexican":        ["mexican", "mexico", "tacos", "burrito", "quesadilla", "nachos", "墨西哥", "墨西哥菜"],
+  "cantonese":      ["cantonese", "dim sum", "yum cha", "茶餐厅", "粤菜", "广东菜", "广式", "点心", "港式", "茶点"],
+  "sichuan":        ["sichuan", "szechuan", "mala", "sichuan food", "川菜", "麻辣", "四川", "四川菜", "麻辣烫", "火锅"],
+  "hunan":          ["hunan", "hunan food", "湖南菜", "湘菜"],
+  "beijing":        ["beijing cuisine", "peking", "beijing food", "北京菜", "京菜", "炸酱面", "北京烤鸭"],
+  "middle_eastern": ["middle eastern", "arabic", "arab food", "lebanese", "falafel", "hummus", "中东菜", "阿拉伯"],
+  "french":         ["french", "french food", "french cuisine", "bistro", "法餐", "法国菜", "法式"],
+  "western":        ["western", "western food", "european", "continental", "西餐", "西式", "欧式"],
+  "mediterranean":  ["mediterranean", "greek", "turkish", "mezze", "地中海", "希腊菜", "土耳其菜"]
+}

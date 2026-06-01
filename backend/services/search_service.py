@@ -39,6 +39,12 @@ def _build_es_query(
     from_: int,
     size: int,
     sort_mode: str = "default",
+    min_rating: Optional[float] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    min_calories: Optional[int] = None,
+    max_calories: Optional[int] = None,
+    min_protein_g: Optional[float] = None,
 ) -> Dict[str, Any]:
     filter_clauses: List[Dict] = []
     query_text = " ".join(tokens)
@@ -104,7 +110,7 @@ def _build_es_query(
     else:
         top_query = {"match_all": {}}
 
-    # ── Filters (price level, geo) ───────────────────────────────────────────
+    # ── Filters (price level, geo, rating, price range, calories) ───────────
     if price_levels:
         filter_clauses.append({"terms": {"price_level": price_levels}})
     if geo:
@@ -113,6 +119,39 @@ def _build_es_query(
             "geo_distance": {
                 "distance": f"{geo_radius_km}km",
                 "geo": {"lat": lat, "lon": lng},
+            }
+        })
+    if min_rating is not None:
+        filter_clauses.append({"range": {"rating": {"gte": min_rating}}})
+    if min_price is not None or max_price is not None:
+        price_range: Dict = {}
+        if min_price is not None:
+            price_range["gte"] = min_price
+        if max_price is not None:
+            price_range["lte"] = max_price
+        filter_clauses.append({
+            "nested": {
+                "path": "menu_items",
+                "query": {"range": {"menu_items.price": price_range}},
+            }
+        })
+    if min_calories is not None or max_calories is not None:
+        cal_range: Dict = {}
+        if min_calories is not None:
+            cal_range["gte"] = min_calories
+        if max_calories is not None:
+            cal_range["lte"] = max_calories
+        filter_clauses.append({
+            "nested": {
+                "path": "menu_items",
+                "query": {"range": {"menu_items.calories": cal_range}},
+            }
+        })
+    if min_protein_g is not None:
+        filter_clauses.append({
+            "nested": {
+                "path": "menu_items",
+                "query": {"range": {"menu_items.protein_g": {"gte": min_protein_g}}},
             }
         })
 
@@ -183,20 +222,30 @@ async def search(
         if corrected and corrected.lower() != query_text.lower():
             spell_suggestion = corrected
 
-    # ── 2. 查询解析 + 同义词扩展 ──────────────────────────────────────────────
+    # ── 2. 查询解析 + 同义词扩展 + 约束提取 ─────────────────────────────────
     parsed = _parser.parse(query_text, sort_mode=params.sort_mode)
     search_tokens = parsed.free_text_tokens
     detected_diet_labels = parsed.detected_diet_labels
+
+    # Explicit params win; fall back to query-extracted constraints.
+    c = parsed.extracted_constraints
+    min_calories  = params.min_calories  if params.min_calories  is not None else (c.min_calories  if c else None)
+    max_calories  = params.max_calories  if params.max_calories  is not None else (c.max_calories  if c else None)
+    min_protein_g = params.min_protein_g if params.min_protein_g is not None else (c.min_protein_g if c else None)
+    max_price     = params.max_price     if params.max_price     is not None else (c.max_price_rmb if c else None)
 
     # 用户显式指定的 diet_labels 优先，再补充从查询检测到的
     active_diet_labels = list(
         dict.fromkeys((params.diet_labels or []) + detected_diet_labels)
     )
 
-    # ── 3. 地理位置 ───────────────────────────────────────────────────────────
+    # ── 3. 地理位置：GPS > landmark fallback ──────────────────────────────────
     geo: Optional[Tuple[float, float]] = None
     if params.lat is not None and params.lng is not None:
         geo = (params.lat, params.lng)
+    elif parsed.landmark_geo is not None:
+        geo = parsed.landmark_geo
+        logger.debug("Using landmark geo for '%s': %s", parsed.landmark_name, geo)
 
     # ── 4. 构建并执行 ES 查询 ─────────────────────────────────────────────────
     es_body = _build_es_query(
@@ -208,6 +257,12 @@ async def search(
         from_=params.offset,
         size=params.limit,
         sort_mode=params.sort_mode,
+        min_rating=params.min_rating,
+        min_price=params.min_price,
+        max_price=max_price,
+        min_calories=min_calories,
+        max_calories=max_calories,
+        min_protein_g=min_protein_g,
     )
 
     es = get_es()
@@ -302,6 +357,8 @@ async def search(
         facets=facets,
         spell_suggestion=spell_suggestion,
         detected_diet_labels=detected_diet_labels,
+        detected_cuisine_type=parsed.detected_cuisine_type,
+        landmark_name=parsed.landmark_name,
         query_tokens=search_tokens,
         sort_mode=params.sort_mode,
         offset=params.offset,

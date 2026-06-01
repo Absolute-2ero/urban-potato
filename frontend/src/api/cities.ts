@@ -3,6 +3,7 @@ import client from './client'
 export interface City {
   id: string
   label: string
+  label_zh?: string
   center: { lat: number; lng: number }
 }
 

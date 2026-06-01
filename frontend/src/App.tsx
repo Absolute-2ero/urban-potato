@@ -1,9 +1,10 @@
 import { useEffect, Component, type ReactNode, type ErrorInfo } from 'react'
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Avatar, Button, ConfigProvider, Dropdown, Layout, Typography } from 'antd'
-import { CalendarOutlined, HistoryOutlined, LoginOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons'
+import { CalendarOutlined, HeartOutlined, HistoryOutlined, LoginOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons'
 import { useAuthStore } from '@/stores/authStore'
 import { PRIMARY_COLOR } from '@/constants'
+import { LanguageProvider, useLang } from '@/i18n/LanguageContext'
 import HomePage from '@/pages/HomePage'
 import AboutPage from '@/pages/AboutPage'
 import SearchPage from '@/pages/SearchPage'
@@ -13,6 +14,8 @@ import ProfilePage from '@/pages/ProfilePage'
 import LoginPage from '@/pages/LoginPage'
 import OnboardingPage from '@/pages/OnboardingPage'
 import HistoryPage from '@/pages/HistoryPage'
+import SavedRestaurantsPage from '@/pages/SavedRestaurantsPage'
+import { MacWidget } from '@/components/mascot/MacWidget'
 
 const { Header, Content } = Layout
 const { Text } = Typography
@@ -38,14 +41,16 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
-const NAV_TABS = [
-  { key: 'discover', label: 'Discover', icon: SearchOutlined, to: () => sessionStorage.getItem('lastSearchUrl') || '/', matches: (p: string) => p === '/' || p.startsWith('/search') || p.startsWith('/restaurants') },
-  { key: 'diet', label: 'Diet', icon: CalendarOutlined, to: () => '/diet', matches: (p: string) => p.startsWith('/diet') },
+const NAV_TAB_DEFS = [
+  { key: 'discover', tKey: 'nav_discover' as const, icon: SearchOutlined, to: () => sessionStorage.getItem('lastSearchUrl') || '/', matches: (p: string) => p === '/' || p.startsWith('/search') || p.startsWith('/restaurants') },
+  { key: 'diet',     tKey: 'nav_diet' as const,     icon: CalendarOutlined, to: () => '/diet',   matches: (p: string) => p.startsWith('/diet') },
+  { key: 'saved',    tKey: 'nav_saved' as const,    icon: HeartOutlined,    to: () => '/saved',  matches: (p: string) => p.startsWith('/saved') },
 ]
 
 function AppHeader() {
   const { user, logout } = useAuthStore()
   const { pathname } = useLocation()
+  const { t, toggleLang } = useLang()
 
   return (
     <Header
@@ -57,6 +62,8 @@ function AppHeader() {
         borderBottom: '1px solid #E8E0D5',
         padding: '0 20px',
         height: 52,
+        lineHeight: '52px',
+        overflow: 'hidden',
         position: 'sticky',
         top: 0,
         zIndex: 100,
@@ -77,28 +84,23 @@ function AppHeader() {
 
       {/* Nav tabs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1 }}>
-        {NAV_TABS.map(({ key, label, icon: Icon, to, matches }) => {
+        {NAV_TAB_DEFS.map(({ key, tKey, icon: Icon, to, matches }) => {
           const active = matches(pathname)
           return (
             <Link
               key={key}
               to={to()}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '6px 12px',
-                borderRadius: 8,
-                textDecoration: 'none',
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '4px 12px', borderRadius: 8, textDecoration: 'none',
                 background: active ? PRIMARY_COLOR + '12' : 'transparent',
                 color: active ? PRIMARY_COLOR : '#6B7A7A',
-                fontSize: 14,
-                fontWeight: active ? 600 : 400,
-                transition: 'all 0.12s',
+                fontSize: 14, fontWeight: active ? 600 : 400, transition: 'all 0.12s',
+                lineHeight: 'normal', alignSelf: 'center',
               }}
             >
               <Icon style={{ fontSize: 15 }} />
-              {label}
+              {t[tKey]}
             </Link>
           )
         })}
@@ -110,8 +112,21 @@ function AppHeader() {
         fontWeight: pathname === '/about' ? 600 : 400,
         marginRight: 12, textDecoration: 'none',
       }}>
-        About
+        {t.nav_about}
       </Link>
+
+      {/* Language toggle */}
+      <button
+        onClick={toggleLang}
+        style={{
+          marginRight: 12, padding: '4px 10px', borderRadius: 6,
+          border: '1.5px solid #E8E0D5', background: '#fff',
+          color: '#6B7A7A', fontSize: 13, cursor: 'pointer', outline: 'none',
+          fontWeight: 500, lineHeight: 'normal', alignSelf: 'center',
+        }}
+      >
+        {t.nav_lang_toggle}
+      </button>
 
       {/* User */}
       <div>
@@ -161,6 +176,7 @@ function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route path="/history" element={<HistoryPage />} />
+        <Route path="/saved" element={<SavedRestaurantsPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -173,6 +189,7 @@ export default function App() {
   useEffect(() => { init() }, [init])
 
   return (
+    <LanguageProvider>
     <ConfigProvider
       theme={{
         token: {
@@ -188,8 +205,10 @@ export default function App() {
           <ErrorBoundary>
             <AppRoutes />
           </ErrorBoundary>
+          <MacWidget />
         </Layout>
       </BrowserRouter>
     </ConfigProvider>
+    </LanguageProvider>
   )
 }

@@ -24,10 +24,10 @@ export const DIET_LABEL_META: Record<
 export const ALL_DIET_LABELS = Object.keys(DIET_LABEL_META) as DietLabel[]
 
 export const PRICE_LEVEL_META: Record<number, { label: string; icon: string }> = {
-  1: { label: '$ Budget',      icon: '$' },
-  2: { label: '$$ Moderate',   icon: '$$' },
-  3: { label: '$$$ Pricey',    icon: '$$$' },
-  4: { label: '$$$$ Fine dining', icon: '$$$$' },
+  1: { label: 'HK$ Budget',      icon: 'HK$' },
+  2: { label: 'HK$$ Moderate',   icon: 'HK$$' },
+  3: { label: 'HK$$$ Pricey',    icon: 'HK$$$' },
+  4: { label: 'HK$$$$ Fine dining', icon: 'HK$$$$' },
 }
 
 export const SORT_MODES = [

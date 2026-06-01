@@ -92,39 +92,52 @@ def _is_same_restaurant(doc_a: dict, doc_b: dict) -> bool:
 
 # ── Merge logic ────────────────────────────────────────────────────────────────
 
-def _merge(primary: dict, secondary: dict) -> dict:
+def _merge(fp: dict, or_: dict) -> dict:
     """
-    Return a merged copy of primary, filling gaps from secondary.
-    primary is usually the record with more review/detail data.
+    Merge a Foodpanda + OpenRice pair, taking the best field from each source:
+      - Foodpanda primary: rating, rating_count, menu_items, address, geo
+      - OpenRice primary:  phone, opening_hours, smile_counts
+      - Best-of:           images (whichever has more), cuisine_type/district (non-empty)
     """
-    merged = dict(primary)
+    merged = dict(fp)
 
-    # Prefer Foodpanda menu_items if it has significantly more
-    primary_menu = primary.get("menu_items") or []
-    secondary_menu = secondary.get("menu_items") or []
-    if len(secondary_menu) > len(primary_menu) * 1.2 + 2:
-        merged["menu_items"] = secondary_menu
+    # Rating — Foodpanda has real decimal stars; always prefer it
+    if or_.get("rating") is not None and merged.get("rating") is None:
+        merged["rating"] = or_["rating"]
+    if or_.get("rating_count") is not None and merged.get("rating_count") is None:
+        merged["rating_count"] = or_["rating_count"]
 
-    # Fill images from secondary if primary has none
-    if not merged.get("images") and secondary.get("images"):
-        merged["images"] = secondary["images"]
+    # OpenRice-only fields: phone, opening hours, smile counts
+    for key in ("phone", "opening_hours", "smile_counts"):
+        if not merged.get(key) and or_.get(key):
+            merged[key] = or_[key]
 
-    # Fill geo if primary is missing
-    p_geo = primary.get("geo") or {}
-    if p_geo.get("lat") is None:
-        s_geo = secondary.get("geo") or {}
-        if s_geo.get("lat") is not None:
-            merged["geo"] = s_geo
+    # cuisine_type and district: take whichever is non-empty
+    for key in ("cuisine_type", "district"):
+        if not merged.get(key) and or_.get(key):
+            merged[key] = or_[key]
 
-    # Copy source-specific IDs from secondary for traceability
+    # Images: keep whichever source has more
+    fp_imgs = fp.get("images") or []
+    or_imgs = or_.get("images") or []
+    merged["images"] = list(dict.fromkeys(
+        (fp_imgs if len(fp_imgs) >= len(or_imgs) else or_imgs) + fp_imgs + or_imgs
+    ))
+
+    # Geo: Foodpanda GPS (from delivery API) is more precise; fill from OpenRice only if missing
+    fp_geo = fp.get("geo") or {}
+    if fp_geo.get("lat") is None:
+        or_geo = or_.get("geo") or {}
+        if or_geo.get("lat") is not None:
+            merged["geo"] = or_geo
+
+    # Cross-link IDs from both sources for traceability
     for key in ("foodpanda_id", "foodpanda_url", "openrice_id", "openrice_url"):
-        if key not in merged and key in secondary:
-            merged[key] = secondary[key]
+        if key not in merged and key in or_:
+            merged[key] = or_[key]
 
-    # Merge tags (deduplicated)
-    all_tags = list(dict.fromkeys((merged.get("tags") or []) + (secondary.get("tags") or [])))
-    if all_tags:
-        merged["tags"] = all_tags
+    # Tags: union of both
+    merged["tags"] = list(dict.fromkeys((fp.get("tags") or []) + (or_.get("tags") or [])))
 
     return merged
 
@@ -174,24 +187,25 @@ async def run_dedup() -> tuple[int, int]:
         if best_or is None:
             continue
 
-        # OpenRice is primary (richer review data); Foodpanda fills gaps
-        merged = _merge(best_or, fp_doc)
+        # Foodpanda is primary (real star ratings, precise GPS, full menu)
+        # OpenRice fills in phone, opening hours, smile counts
+        merged = _merge(fp_doc, best_or)
         merged_count += 1
 
-        # Update primary (OpenRice) doc in SQLite
+        # Update primary (Foodpanda) doc in SQLite
         await db.execute(
             "UPDATE pipeline_progress SET doc_json=?, name=?, updated_at=datetime('now') WHERE restaurant_id=?",
             (json.dumps(merged, ensure_ascii=False, default=str), merged.get("name", ""), merged["restaurant_id"]),
         )
-        # Delete the secondary (Foodpanda) doc
+        # Delete the secondary (OpenRice) doc
         await db.execute(
             "DELETE FROM pipeline_progress WHERE restaurant_id=?",
-            (fp_doc["restaurant_id"],),
+            (best_or["restaurant_id"],),
         )
-        removed_ids.add(fp_doc["restaurant_id"])
+        removed_ids.add(best_or["restaurant_id"])
         logger.debug(
-            "Dedup: merged Foodpanda %r → OpenRice %r (sim=%.2f)",
-            fp_doc.get("name"), best_or.get("name"), best_sim,
+            "Dedup: merged OpenRice %r → Foodpanda %r (sim=%.2f)",
+            best_or.get("name"), fp_doc.get("name"), best_sim,
         )
 
     await db.commit()

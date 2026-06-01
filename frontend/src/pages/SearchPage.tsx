@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Button, Empty, Pagination, Select, Spin, Tooltip, Typography } from 'antd'
-import { AimOutlined, EnvironmentOutlined, ReloadOutlined, RocketOutlined } from '@ant-design/icons'
+import { Alert, Button, Empty, Pagination, Select, Spin, Typography } from 'antd'
+import { EnvironmentOutlined, ReloadOutlined, RocketOutlined } from '@ant-design/icons'
+import { LocationPickerModal } from '@/components/location/LocationPickerModal'
+import { fetchCities } from '@/api/cities'
+import type { City } from '@/api/cities'
 import { PRIMARY_COLOR } from '@/constants'
 import { SearchBar } from '@/components/search/SearchBar'
 import { FilterBar, FilterState, EMPTY_FILTERS } from '@/components/search/FilterBar'
@@ -9,8 +12,8 @@ import { useSearchSync } from '@/hooks/useSearch'
 import { useSearchStore } from '@/stores/searchStore'
 import { useAuthStore } from '@/stores/authStore'
 import { addSearchRecord } from '@/utils/history'
-import { fetchCities } from '@/api/cities'
-import type { City } from '@/api/cities'
+import { loadPrefs, prefsToDietLabels } from '@/utils/prefs'
+import { useLang } from '@/i18n/LanguageContext'
 import type { DietLabel, Restaurant } from '@/types'
 
 const { Text } = Typography
@@ -23,6 +26,72 @@ function countMatchingDishes(r: Restaurant, dietLabels: DietLabel[], q: string):
     const nameMatch = q.length > 0 && item.name?.toLowerCase().includes(q.toLowerCase())
     return labelMatch || nameMatch
   }).length
+}
+
+function LocationRow() {
+  const { lat, lng, locationName, setLocation, setLocationName, doSearch } = useSearchStore()
+  const { t } = useLang()
+  const [cities, setCities] = useState<City[]>([])
+  const [selectedCity, setSelectedCity] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    fetchCities().then((list) => {
+      setCities(list)
+      if (list.length > 0 && !selectedCity) {
+        const first = list[0]
+        setSelectedCity(first.id)
+        if (lat === null) {
+          setLocation(first.center.lat, first.center.lng)
+          setLocationName(first.label)
+        }
+      }
+    }).catch(() => {})
+  }, [])
+
+  const handleCityChange = (id: string) => {
+    const city = cities.find((c) => c.id === id)
+    if (!city) return
+    setSelectedCity(id)
+    setLocation(city.center.lat, city.center.lng)
+    setLocationName(city.label)
+    doSearch()
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+      <Select
+        value={selectedCity}
+        onChange={handleCityChange}
+        style={{ width: 120, flexShrink: 0 }}
+        size="middle"
+        options={cities.map((c) => ({ value: c.id, label: (t.nav_lang_toggle === 'English' ? c.label_zh : null) || c.label }))}
+        suffixIcon={<EnvironmentOutlined style={{ fontSize: 12 }} />}
+        placeholder="City"
+      />
+      <button
+        onClick={() => setOpen(true)}
+        title={locationName}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+          border: `1.5px solid ${lat !== null ? PRIMARY_COLOR : '#E8E0D5'}`,
+          background: lat !== null ? PRIMARY_COLOR + '10' : '#fff',
+          color: lat !== null ? PRIMARY_COLOR : '#6B7A7A',
+          cursor: 'pointer', outline: 'none',
+        }}
+      >
+        <EnvironmentOutlined style={{ fontSize: 15 }} />
+      </button>
+      <LocationPickerModal
+        open={open}
+        initialLat={lat ?? 22.3193}
+        initialLng={lng ?? 114.1694}
+        onConfirm={(lat, lng, name) => { setLocation(lat, lng); setLocationName(name); doSearch() }}
+        onClose={() => setOpen(false)}
+      />
+    </div>
+  )
 }
 
 export default function SearchPage() {
@@ -39,22 +108,17 @@ export default function SearchPage() {
   const {
     results, total, facets, loading, error,
     spellSuggestion, detectedDietLabels, crawlTriggered,
-    doSearch, setLocation,
+    doSearch, setLocation, setLocalFilters: setStoreFilters, setSortMode,
   } = useSearchStore()
   const { user } = useAuthStore()
+  const { t } = useLang()
 
-  const [cities, setCities] = useState<City[]>([])
-  const [selectedCity, setSelectedCity] = useState<string | null>(null)
-  const [locAvailable, setLocAvailable] = useState(true)
-  const [locLoading, setLocLoading] = useState(false)
   const [countdown, setCountdown] = useState<number | null>(null)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const lastRecordedRef = useRef('')
 
   // Local-only filter state (not URL-synced; backend extension needed)
   const [localFilters, setLocalFilters] = useState<Omit<FilterState, 'dietLabels' | 'priceLevels' | 'sortMode'>>({
-    cuisineTypes: [],
-    foodTypes: [],
     calorieRange: null,
     nutritionLabels: [],
     minRating: null,
@@ -64,32 +128,17 @@ export default function SearchPage() {
     priceRange: null,
   })
 
+  // Apply saved user preferences as default diet labels (only when no URL diet params exist)
   useEffect(() => {
-    setLocAvailable('geolocation' in navigator)
-    fetchCities()
-      .then((list) => {
-        setCities(list)
-        if (list.length > 0 && !selectedCity) {
-          setSelectedCity(list[0].id)
-          setLocation(list[0].center.lat, list[0].center.lng)
-        }
-      })
-      .catch(() => {})
-  }, [])
+    if (!user) return
+    if (new URLSearchParams(window.location.search).has('diet')) return
+    const prefs = loadPrefs(user.id)
+    const defaultLabels = prefsToDietLabels(prefs) as DietLabel[]
+    if (defaultLabels.length > 0) {
+      push({ diet: defaultLabels })
+    }
+  }, [user?.id])
 
-  const handleGetLocation = () => {
-    if (!locAvailable) return
-    setLocLoading(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation(pos.coords.latitude, pos.coords.longitude)
-        setLocLoading(false)
-        doSearch()
-      },
-      () => { setLocLoading(false); setLocAvailable(false) },
-      { timeout: 8000 }
-    )
-  }
 
   useEffect(() => {
     if (!crawlTriggered) return
@@ -125,24 +174,34 @@ export default function SearchPage() {
   const handleFilterChange = (updates: Partial<FilterState>) => {
     const urlPatch: Parameters<typeof push>[0] = {}
     const localPatch: Partial<typeof localFilters> = {}
+    const storePatch: Record<string, any> = {}
 
     for (const [key, value] of Object.entries(updates)) {
       if (key === 'dietLabels') urlPatch.diet = value as DietLabel[]
       else if (key === 'priceLevels') urlPatch.price = value as number[]
-      else if (key === 'sortMode') urlPatch.sort = value as string
-      else (localPatch as any)[key] = value
+      else if (key === 'sortMode') { urlPatch.sort = value as string; setSortMode(value as string) }
+      else {
+        (localPatch as any)[key] = value
+        // Sync backend-relevant local filters to store
+        if (key === 'maxDistanceKm') storePatch.radiusKm = (value as number | null) ?? 5.0
+        if (key === 'minRating') storePatch.minRating = value
+        if (key === 'priceRange') {
+          storePatch.minPrice = (value as [number,number] | null)?.[0] ?? null
+          storePatch.maxPrice = (value as [number,number] | null)?.[1] ?? null
+        }
+        if (key === 'calorieRange') {
+          storePatch.minCalories = (value as [number,number] | null)?.[0] ?? null
+          storePatch.maxCalories = (value as [number,number] | null)?.[1] ?? null
+        }
+      }
     }
 
     if (Object.keys(urlPatch).length > 0) push({ ...urlPatch, offset: 0 })
-    if (Object.keys(localPatch).length > 0) setLocalFilters((prev) => ({ ...prev, ...localPatch }))
-  }
-
-  const handleCityChange = (id: string) => {
-    const city = cities.find((c) => c.id === id)
-    if (!city) return
-    setSelectedCity(id)
-    setLocation(city.center.lat, city.center.lng)
-    push({ offset: 0 })
+    if (Object.keys(localPatch).length > 0) setLocalFilters(prev => ({ ...prev, ...localPatch }))
+    if (Object.keys(storePatch).length > 0) {
+      setStoreFilters(storePatch)
+      doSearch()
+    }
   }
 
   // Rerank by matching dish count when filters are active
@@ -171,60 +230,15 @@ export default function SearchPage() {
         }}
       >
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          {/* Location row — above search bar */}
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
-            <Select
-              value={selectedCity}
-              onChange={handleCityChange}
-              style={{ width: 96 }}
-              size="middle"
-              options={cities.map((c) => ({ value: c.id, label: c.label }))}
-              suffixIcon={<EnvironmentOutlined style={{ fontSize: 12 }} />}
-              placeholder="City"
-            />
-            <Tooltip
-              title={
-                locAvailable
-                  ? 'Use my current location'
-                  : 'Location access denied — check browser settings'
-              }
-            >
-              <Button
-                icon={<AimOutlined />}
-                size="middle"
-                onClick={handleGetLocation}
-                loading={locLoading}
-                disabled={!locAvailable}
-                style={{
-                  borderColor: locAvailable ? PRIMARY_COLOR : '#E8E0D5',
-                  color: locAvailable ? PRIMARY_COLOR : '#C0BDB8',
-                  fontWeight: 400,
-                }}
-              >
-                Near me
-              </Button>
-            </Tooltip>
-          </div>
-          {/* Search bar */}
+          {/* Location + search bar row */}
+          <LocationRow />
           <div style={{ marginBottom: 10 }}>
             <SearchBar
               value={q}
               onSearch={(val) => push({ q: val, offset: 0 })}
-              city={selectedCity ?? undefined}
             />
           </div>
-          {/* 6 filter groups (no location) */}
-          <FilterBar
-            cities={cities}
-            selectedCity={selectedCity}
-            onCityChange={handleCityChange}
-            locAvailable={locAvailable}
-            locLoading={locLoading}
-            onGetLocation={handleGetLocation}
-            filters={filters}
-            onFilterChange={handleFilterChange}
-            hideLocation
-          />
+          <FilterBar filters={filters} onFilterChange={handleFilterChange} hideLocation />
         </div>
       </div>
 
@@ -233,18 +247,18 @@ export default function SearchPage() {
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '12px 24px 0' }}>
           {spellSuggestion && (
             <Alert type="info" showIcon closable
-              message={<span>Did you mean: <a onClick={() => push({ q: spellSuggestion, offset: 0 })}><strong>{spellSuggestion}</strong></a>?</span>}
+              message={<span>{t.search_did_you_mean} <a onClick={() => push({ q: spellSuggestion, offset: 0 })}><strong>{spellSuggestion}</strong></a>?</span>}
               style={{ marginBottom: 8 }} />
           )}
           {detectedDietLabels.length > 0 && (
             <Alert type="success" showIcon closable
-              message={`Detected dietary preferences: ${detectedDietLabels.join(', ')}`}
+              message={`${t.search_detected_diet} ${detectedDietLabels.join(', ')}`}
               style={{ marginBottom: 8 }} />
           )}
           {crawlTriggered && (
             <Alert type="warning" showIcon icon={<RocketOutlined />} closable
-              message={<span>Fetching more results from the web{countdown !== null ? `, refreshing in ${countdown}s…` : ''}</span>}
-              action={<Button size="small" icon={<ReloadOutlined />} onClick={() => doSearch()}>Refresh</Button>}
+              message={<span>{t.search_fetching_more}{countdown !== null ? `, refreshing in ${countdown}s…` : ''}</span>}
+              action={<Button size="small" icon={<ReloadOutlined />} onClick={() => doSearch()}>{t.search_refresh}</Button>}
               style={{ marginBottom: 8 }} />
           )}
         </div>
@@ -254,8 +268,7 @@ export default function SearchPage() {
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 24px 32px' }}>
         {!loading && !error && total > 0 && (
           <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 13 }}>
-            {total} restaurant{total !== 1 ? 's' : ''} found
-            {(dietLabels.length > 0 || q) && ' · sorted by dish matches'}
+            {t.search_found(total)}
           </Text>
         )}
 
@@ -265,11 +278,7 @@ export default function SearchPage() {
           {rankedResults.length === 0 && !loading ? (
             <Empty
               style={{ marginTop: 48 }}
-              description={
-                crawlTriggered
-                  ? 'Fetching data from the web, please wait…'
-                  : 'No restaurants matched — try adjusting your filters'
-              }
+              description={crawlTriggered ? t.search_crawling : t.search_no_results}
             />
           ) : (
             rankedResults.map((r) => (

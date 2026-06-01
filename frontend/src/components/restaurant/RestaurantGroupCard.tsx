@@ -177,7 +177,7 @@ export function RestaurantGroupCard({ restaurant: r, activeDietLabels = [], quer
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
                     <Text style={{ fontSize: 14, color: '#1E2A2A', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                      {item.name}
+                      {item.name_en || item.name}
                     </Text>
                     <span style={{ fontSize: 10, color: '#2D9B5A', background: '#E8F5E9', padding: '1px 7px', borderRadius: 8, fontWeight: 600, flexShrink: 0 }}>
                       ✓ match
@@ -217,7 +217,7 @@ export function RestaurantGroupCard({ restaurant: r, activeDietLabels = [], quer
                 <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                   {item.price !== undefined && (
                     <Text style={{ fontSize: 13, color: '#1E2A2A', fontWeight: 500 }}>
-                      ${item.price}
+                      HK${item.price}
                     </Text>
                   )}
                   <Button

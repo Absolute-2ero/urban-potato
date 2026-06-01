@@ -7,6 +7,7 @@ import { exportLogs } from '@/api/diet'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { loadPrefs, savePrefs, loadGoals, saveGoals, DEFAULT_GOALS, type SavedPrefs, type DailyGoals } from '@/utils/prefs'
+import { notifyMac } from '@/stores/macStore'
 import { PRIMARY_COLOR } from '@/constants'
 
 const { Title, Text } = Typography
@@ -163,6 +164,7 @@ export default function ProfilePage() {
     savePrefs(user.id, prefs)
     saveGoals(user.id, goals)
     message.success('Preferences saved')
+    notifyMac('prefs_saved', true)
   }
 
   const handleExport = async () => {

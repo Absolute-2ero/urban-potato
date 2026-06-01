@@ -21,7 +21,9 @@ export interface UserLogin {
 export type DietLabel =
   | 'vegan' | 'vegetarian' | 'halal' | 'kosher' | 'organic'
   | 'gluten-free' | 'dairy-free' | 'keto' | 'high-protein' | 'low-carb'
-  | 'low-calorie' | 'low-sodium' | 'nut-free' | 'shellfish-free' | 'soy-free'
+  | 'low-calorie' | 'low-sodium' | 'low-fat' | 'low-sugar' | 'low-oil'
+  | 'nut-free' | 'peanut-free' | 'shellfish-free' | 'seafood-free'
+  | 'soy-free' | 'no-spicy' | 'light-meal'
 
 export interface DietProfile {
   user_id: string
@@ -153,6 +155,11 @@ export interface SearchParams {
   sort_mode?: string
   offset?: number
   limit?: number
+  min_rating?: number
+  min_price?: number
+  max_price?: number
+  min_calories?: number
+  max_calories?: number
 }
 
 export interface SearchResponse {

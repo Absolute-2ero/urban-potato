@@ -1,12 +1,14 @@
 cities:
   - id: hongkong
-    label: 香港
+    label: Hong Kong
+    label_zh: 香港
     center:
       lat: 22.3193
       lng: 114.1694
 
   - id: beijing
-    label: 北京
+    label: Beijing
+    label_zh: 北京
     center:
       lat: 39.9042
       lng: 116.4074

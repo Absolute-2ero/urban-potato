@@ -120,7 +120,7 @@ export default function OnboardingPage() {
       saveGoals(user.id, goals)
       message.success('Preferences saved!')
     }
-    navigate('/search')
+    navigate('/')
   }
 
   const cardStyle: React.CSSProperties = {
@@ -191,7 +191,7 @@ export default function OnboardingPage() {
               onChange={(v) => setGoals((g) => ({ ...g, carb_g: v }))} />
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-              <Button type="text" onClick={() => navigate('/search')} style={{ color: '#AAB4B4' }}>
+              <Button type="text" onClick={() => navigate('/')} style={{ color: '#AAB4B4' }}>
                 Skip for now
               </Button>
               <Button type="primary" onClick={() => setStep(1)} style={{ background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }}>
@@ -254,7 +254,7 @@ export default function OnboardingPage() {
         )}
 
         <div style={{ textAlign: 'center', marginTop: 16 }}>
-          <Button type="link" onClick={() => navigate('/search')} style={{ color: '#AAB4B4', fontSize: 13 }}>
+          <Button type="link" onClick={() => navigate('/')} style={{ color: '#AAB4B4', fontSize: 13 }}>
             I'll set this up later in Profile
           </Button>
         </div>
