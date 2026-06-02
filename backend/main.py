@@ -37,19 +37,28 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Starting DietSearch backend...")
 
-    # 初始化数据库连接
-    await init_pg()
+    # SQLite is always required
     await init_sqlite()
-    await init_redis()
-    await init_es()
-
-    # 初始化 SQLite schema（幂等）
     from database import get_sqlite
     conn = get_sqlite()
     await init_sqlite_schema(conn)
 
-    # 确保 ES 索引存在
-    await ensure_index()
+    # PostgreSQL, Redis, Elasticsearch are optional for local dev
+    try:
+        await init_pg()
+    except Exception as exc:
+        logger.warning("PostgreSQL unavailable (%s) — skipping", exc)
+
+    try:
+        await init_redis()
+    except Exception as exc:
+        logger.warning("Redis unavailable (%s) — caching disabled", exc)
+
+    try:
+        await init_es()
+        await ensure_index()
+    except Exception as exc:
+        logger.warning("Elasticsearch unavailable (%s) — search degraded", exc)
 
     # 初始化搜索组件（同义词、解析器、排序器）
     init_search_components()
@@ -72,21 +81,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Shutdown complete")
 
 
-_SCHEDULER_INTERVAL = 3600   # 每小时运行一次批量爬虫
-
-
 async def _scheduler_loop() -> None:
-    """后台定时调度：首次延迟 30 秒（等待服务热身），之后每小时运行一次。"""
-    await asyncio.sleep(30)
-    while True:
-        try:
-            from crawler.realtime_crawler import run_scheduled_crawl
-            logger.info("Scheduler: starting batch crawl...")
-            await run_scheduled_crawl()
-            logger.info("Scheduler: batch crawl done, sleeping %ds", _SCHEDULER_INTERVAL)
-        except Exception as exc:
-            logger.error("Scheduler error: %s", exc, exc_info=True)
-        await asyncio.sleep(_SCHEDULER_INTERVAL)
+    # Scheduled crawling disabled — run the pipeline manually:
+    #   python -m crawler.pipeline --eleme --gemini
+    pass
 
 
 # ── 应用实例 ──────────────────────────────────────────────────────────────────

@@ -1,111 +1,141 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Button, Empty, Pagination, Select, Spin, Tag, Tooltip, Typography } from 'antd'
-import { AimOutlined, EnvironmentOutlined, LoadingOutlined, ReloadOutlined, RocketOutlined } from '@ant-design/icons'
+import { Alert, Button, Empty, Pagination, Select, Spin, Tag, Typography } from 'antd'
+import { EnvironmentOutlined, LoadingOutlined } from '@ant-design/icons'
+import { LocationPickerModal } from '@/components/location/LocationPickerModal'
+import { fetchCities } from '@/api/cities'
+import type { City } from '@/api/cities'
 import { PRIMARY_COLOR } from '@/constants'
 import { SearchBar } from '@/components/search/SearchBar'
 import { FilterBar, FilterState, EMPTY_FILTERS } from '@/components/search/FilterBar'
 import { RestaurantGroupCard } from '@/components/restaurant/RestaurantGroupCard'
 import { useSearchSync } from '@/hooks/useSearch'
 import { useSearchStore } from '@/stores/searchStore'
-import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { addSearchRecord } from '@/utils/history'
-import { fetchCities } from '@/api/cities'
+import { loadPrefs, prefsToDietLabels } from '@/utils/prefs'
+import { useLang } from '@/i18n/LanguageContext'
 import { parseQuery } from '@/api/search'
-import type { City } from '@/api/cities'
 import type { DietLabel, ParsedQuery, Restaurant } from '@/types'
 
 const { Text } = Typography
-const CRAWL_REFRESH_DELAY = 10_000
 
 function countMatchingDishes(r: Restaurant, dietLabels: DietLabel[], q: string): number {
   if (!r.menu_items?.length) return 0
   return r.menu_items.filter((item) => {
     const labelMatch = dietLabels.length > 0 && item.diet_labels?.some((d) => dietLabels.includes(d))
-    const nameMatch = q.length > 0 && item.name.toLowerCase().includes(q.toLowerCase())
+    const nameMatch = q.length > 0 && item.name?.toLowerCase().includes(q.toLowerCase())
     return labelMatch || nameMatch
   }).length
 }
 
+function LocationRow() {
+  const { lat, lng, locationName, setLocation, setLocationName, setCity, doSearch, city: storeCity } = useSearchStore()
+  const { t } = useLang()
+  const [cities, setCities] = useState<City[]>([])
+  const [selectedCity, setSelectedCity] = useState<string | null>(storeCity || null)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    fetchCities().then((list) => {
+      setCities(list)
+      if (list.length === 0) return
+      const activeId = storeCity || list[0].id
+      const active = list.find((c) => c.id === activeId) ?? list[0]
+      setSelectedCity(active.id)
+      setCity(active.id)
+      if (lat === null) {
+        setLocation(active.center.lat, active.center.lng)
+        setLocationName(active.label)
+      }
+    }).catch(() => {})
+  }, [])
+
+  const handleCityChange = (id: string) => {
+    const city = cities.find((c) => c.id === id)
+    if (!city) return
+    setSelectedCity(id)
+    setCity(id)
+    setLocation(city.center.lat, city.center.lng)
+    setLocationName(city.label)
+    doSearch()
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+      <Select
+        value={selectedCity}
+        onChange={handleCityChange}
+        style={{ width: 120, flexShrink: 0 }}
+        size="middle"
+        options={cities.map((c) => ({ value: c.id, label: (t.nav_lang_toggle === 'English' ? c.label_zh : null) || c.label }))}
+        suffixIcon={<EnvironmentOutlined style={{ fontSize: 12 }} />}
+        placeholder="City"
+      />
+      <button
+        onClick={() => setOpen(true)}
+        title={locationName}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+          border: `1.5px solid ${lat !== null ? PRIMARY_COLOR : '#E8E0D5'}`,
+          background: lat !== null ? PRIMARY_COLOR + '10' : '#fff',
+          color: lat !== null ? PRIMARY_COLOR : '#6B7A7A',
+          cursor: 'pointer', outline: 'none',
+        }}
+      >
+        <EnvironmentOutlined style={{ fontSize: 15 }} />
+      </button>
+      <LocationPickerModal
+        open={open}
+        initialLat={lat ?? 39.9042}
+        initialLng={lng ?? 116.4074}
+        onConfirm={(lat, lng, name) => { setLocation(lat, lng); setLocationName(name); doSearch() }}
+        onClose={() => setOpen(false)}
+      />
+    </div>
+  )
+}
+
 export default function SearchPage() {
   const { q, dietLabels, priceLevels, sortMode, offset, limit, push } = useSearchSync()
+
+  useEffect(() => {
+    const search = window.location.search
+    if (search) sessionStorage.setItem('lastSearchUrl', '/search' + search)
+  }, [q, dietLabels, priceLevels, sortMode])
+
   const {
     results, total, facets, loading, error,
     spellSuggestion, detectedDietLabels, crawlTriggered,
-    doSearch, setLocation, clearLocation, setRadiusKm,
+    doSearch, setLocation, setLocalFilters: setStoreFilters, setSortMode,
   } = useSearchStore()
   const { user } = useAuthStore()
+  const { t } = useLang()
 
-  const [cities, setCities] = useState<City[]>([])
-  const [selectedCity, setSelectedCity] = useState<string | null>(null)
-  const [locAvailable, setLocAvailable] = useState(true)
-  const [locLoading, setLocLoading] = useState(false)
-  const [countdown, setCountdown] = useState<number | null>(null)
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const lastRecordedRef = useRef('')
+
+  // LLM query parsing state
   const [parsing, setParsing] = useState(false)
   const [parsedInfo, setParsedInfo] = useState<ParsedQuery | null>(null)
 
-  const [urlParams] = useSearchParams()
-
-  // Local-only filter state — maxDistanceKm 从 URL 初始化，其余本地管理
   const [localFilters, setLocalFilters] = useState<Omit<FilterState, 'dietLabels' | 'priceLevels' | 'sortMode'>>({
-    cuisineTypes: [],
-    foodTypes: [],
     calorieRange: null,
     nutritionLabels: [],
     minRating: null,
-    maxDistanceKm: urlParams.get('radius_km') ? Number(urlParams.get('radius_km')) : null,
+    maxDistanceKm: null,
     extraDietRestrictions: [],
     allergyRestrictions: [],
     priceRange: null,
   })
 
   useEffect(() => {
-    clearLocation()  // 不继承 HomePage 设置的坐标，避免搜索结果被意外 geo 过滤
-    setLocAvailable('geolocation' in navigator)
-    fetchCities()
-      .then((list) => {
-        setCities(list)
-        if (list.length > 0 && !selectedCity) {
-          setSelectedCity(list[0].id)
-          setLocation(list[0].center.lat, list[0].center.lng)
-        }
-      })
-      .catch(() => {})
-  }, [])
+    if (!user) return
+    if (new URLSearchParams(window.location.search).has('diet')) return
+    const prefs = loadPrefs(user.id)
+    const defaultLabels = prefsToDietLabels(prefs) as DietLabel[]
+    if (defaultLabels.length > 0) push({ diet: defaultLabels })
+  }, [user?.id])
 
-  const handleGetLocation = () => {
-    if (!locAvailable) return
-    setLocLoading(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation(pos.coords.latitude, pos.coords.longitude)
-        setLocLoading(false)
-        doSearch()
-      },
-      () => { setLocLoading(false); setLocAvailable(false) },
-      { timeout: 8000 }
-    )
-  }
-
-  useEffect(() => {
-    if (!crawlTriggered) return
-    setCountdown(Math.round(CRAWL_REFRESH_DELAY / 1000))
-    countdownRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(countdownRef.current!)
-          doSearch()
-          return null
-        }
-        return prev - 1
-      })
-    }, 1000)
-    return () => { if (countdownRef.current) clearInterval(countdownRef.current) }
-  }, [crawlTriggered])
-
-  // Record search history when a search completes with a query or diet filters
   useEffect(() => {
     if (loading || (!q && dietLabels.length === 0)) return
     const key = `${q}|${[...dietLabels].sort().join(',')}`
@@ -117,114 +147,42 @@ export default function SearchPage() {
     )
   }, [loading, q, dietLabels])
 
-  // Combined filter state (URL-synced + local)
   const filters: FilterState = { dietLabels, priceLevels, sortMode, ...localFilters }
-
-  // allergyRestrictions 前端值 → 后端 allergens 字段名
-  const ALLERGY_TO_ALLERGEN: Record<string, string> = {
-    'peanut-free': 'peanut',
-    'seafood-free': 'shellfish',
-    'soy-free': 'soy',
-    'dairy-free': 'dairy',
-    'gluten-free': 'gluten',
-  }
-
-  // 前端 foodType/cuisine 枚举值 → 后端 cuisine_type 中文字段
-  const FOOD_TYPE_TO_ZH: Record<string, string> = {
-    fast_food: '快餐', street_food: '小吃', bbq: '烧烤', hotpot: '火锅',
-    buffet: '自助餐', noodles: '面食', congee: '粥', dumplings: '饺子',
-    korean_bbq: '烤肉',
-  }
-  const CUISINE_TO_ZH: Record<string, string> = {
-    sichuan: '川菜', cantonese: '粤菜', hunan: '湘菜', shandong: '鲁菜',
-    jiangsu: '苏菜', zhejiang: '浙菜', fujian: '闽菜', anhui: '徽菜',
-  }
-  // nutritionLabels → diet_labels
-  const NUTRITION_TO_DIET: Record<string, string> = {
-    low_fat: 'low-calorie', low_sugar: 'low-calorie',
-    low_sodium: 'low-sodium', no_added_oil: 'low-calorie',
-  }
-
-  // 把当前所有本地 filters 转成后端参数，可传入增量 patch 覆盖
-  const buildLocalOverrides = (
-    patch: Partial<typeof localFilters> = {},
-    overrideDietLabels?: DietLabel[],
-  ) => {
-    const next = { ...localFilters, ...patch }
-    const base = overrideDietLabels ?? dietLabels
-    const cuisineZh = [
-      ...next.foodTypes.map((v) => FOOD_TYPE_TO_ZH[v]).filter(Boolean),
-      ...next.cuisineTypes.map((v) => CUISINE_TO_ZH[v]).filter(Boolean),
-    ]
-    const extraDiet = next.nutritionLabels.map((v) => NUTRITION_TO_DIET[v]).filter(Boolean)
-    const allergenFree = next.allergyRestrictions
-      .map((v) => ALLERGY_TO_ALLERGEN[v])
-      .filter(Boolean)
-    return {
-      ...(cuisineZh.length ? { cuisine_types: cuisineZh } : { cuisine_types: undefined }),
-      ...((extraDiet.length || base.length) ? { diet_labels: [...base, ...extraDiet] } : {}),
-      ...(allergenFree.length ? { allergen_free_required: allergenFree } : { allergen_free_required: undefined }),
-      ...(next.minRating != null ? { min_rating: next.minRating } : { min_rating: undefined }),
-      ...(next.maxDistanceKm != null ? { radius_km: next.maxDistanceKm } : {}),
-    }
-  }
-
-  // useSearchSync 里 doSearch 不知道本地 filters，在这里补上
-  // 每次 URL 变化（URL 同步的标签改变）后，重新搜索时合并本地 filters
-  const localFiltersRef = useRef(localFilters)
-  localFiltersRef.current = localFilters
-
-  useEffect(() => {
-    // URL 变化后 useSearchSync 已触发了一次 doSearch，但没带本地 filters
-    // 用 setTimeout 0 让 useSearchSync 的 doSearch 先跑，再补一次带本地 filters 的调用
-    const id = setTimeout(() => {
-      const overrides = buildLocalOverrides({}, undefined)
-      const hasLocal = (overrides.cuisine_types?.length ?? 0) > 0
-        || (overrides.min_rating != null)
-      if (hasLocal) doSearch(overrides)
-    }, 0)
-    return () => clearTimeout(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, dietLabels.join(','), priceLevels.join(','), sortMode])
 
   const handleFilterChange = (updates: Partial<FilterState>) => {
     const urlPatch: Parameters<typeof push>[0] = {}
     const localPatch: Partial<typeof localFilters> = {}
+    const storePatch: Record<string, any> = {}
 
     for (const [key, value] of Object.entries(updates)) {
       if (key === 'dietLabels') urlPatch.diet = value as DietLabel[]
       else if (key === 'priceLevels') urlPatch.price = value as number[]
-      else if (key === 'sortMode') urlPatch.sort = value as string
-      else (localPatch as any)[key] = value
+      else if (key === 'sortMode') { urlPatch.sort = value as string; setSortMode(value as string) }
+      else {
+        (localPatch as any)[key] = value
+        if (key === 'maxDistanceKm') storePatch.radiusKm = (value as number | null) ?? 5.0
+        if (key === 'minRating') storePatch.minRating = value
+        if (key === 'priceRange') {
+          storePatch.minPrice = (value as [number,number] | null)?.[0] ?? null
+          storePatch.maxPrice = (value as [number,number] | null)?.[1] ?? null
+        }
+        if (key === 'calorieRange') {
+          storePatch.minCalories = (value as [number,number] | null)?.[0] ?? null
+          storePatch.maxCalories = (value as [number,number] | null)?.[1] ?? null
+        }
+      }
     }
 
-    if (Object.keys(urlPatch).length > 0) {
-      // URL 变化会触发 useSearchSync → doSearch，上面的 useEffect 会补本地 filters
-      push({ ...urlPatch, offset: 0 })
-    }
-    if (Object.keys(localPatch).length > 0) {
-      const next = { ...localFilters, ...localPatch }
-      setLocalFilters(next)
-      if ('maxDistanceKm' in localPatch) setRadiusKm(localPatch.maxDistanceKm ?? null)
-      // 本地 filter 变化立刻触发搜索，传入所有当前本地 filters + patch
-      doSearch(buildLocalOverrides(localPatch))
-    }
+    if (Object.keys(urlPatch).length > 0) push({ ...urlPatch, offset: 0 })
+    if (Object.keys(localPatch).length > 0) setLocalFilters(prev => ({ ...prev, ...localPatch }))
+    if (Object.keys(storePatch).length > 0) { setStoreFilters(storePatch); doSearch() }
   }
 
-  const handleCityChange = (id: string) => {
-    const city = cities.find((c) => c.id === id)
-    if (!city) return
-    setSelectedCity(id)
-    setLocation(city.center.lat, city.center.lng)
-    push({ offset: 0 })
-  }
-
-  // 智能搜索：query 超过 5 个字时尝试 LLM 解析，提取结构化参数
+  // 智能搜索：query > 5 字时尝试 LLM 解析
   const handleSmartSearch = async (rawQuery: string) => {
     const trimmed = rawQuery.trim()
     if (!trimmed) return
 
-    // 短 query 直接搜索，不走 LLM
     if (trimmed.length <= 5) {
       setParsedInfo(null)
       push({ q: trimmed, offset: 0 })
@@ -235,11 +193,7 @@ export default function SearchPage() {
     setParsedInfo(null)
 
     let parsed: ParsedQuery | null = null
-    try {
-      parsed = await parseQuery(trimmed)
-    } catch {
-      // 解析失败，降级为普通搜索
-    }
+    try { parsed = await parseQuery(trimmed) } catch { /* fallback */ }
     setParsing(false)
 
     if (!parsed || !parsed.has_extracted_params) {
@@ -249,18 +203,18 @@ export default function SearchPage() {
 
     setParsedInfo(parsed)
 
-    // 更新 local filter 状态
     const nextLocalFilters = {
       ...localFilters,
-      cuisineTypes: parsed.cuisine_types,
       maxDistanceKm: parsed.radius_km,
       minRating: parsed.min_rating ?? null,
       allergyRestrictions: parsed.allergen_free_required.map((a) => `${a}-free`),
     }
     setLocalFilters(nextLocalFilters)
-    setRadiusKm(parsed.radius_km)
+    setStoreFilters({
+      radiusKm: parsed.radius_km ?? 5.0,
+      minRating: parsed.min_rating ?? null,
+    })
 
-    // 一次性触发包含所有解析参数的搜索
     doSearch({
       q: parsed.q || trimmed,
       diet_labels: parsed.diet_labels.length ? parsed.diet_labels : undefined,
@@ -273,7 +227,6 @@ export default function SearchPage() {
       ...(parsed.allergen_free_required.length ? { allergen_free_required: parsed.allergen_free_required } : {}),
     })
 
-    // 更新 URL（供分享/书签，会再触发一次 doSearch，但参数相同）
     push({
       q: parsed.q || trimmed,
       diet: parsed.diet_labels as DietLabel[],
@@ -283,12 +236,12 @@ export default function SearchPage() {
     })
   }
 
-  // Rerank by matching dish count when filters are active
+  const matchCount = (r: Restaurant) =>
+    r.matched_dishes?.length ?? countMatchingDishes(r, dietLabels, q)
+
   const rankedResults =
     dietLabels.length > 0 || q
-      ? [...results].sort(
-          (a, b) => countMatchingDishes(b, dietLabels, q) - countMatchingDishes(a, dietLabels, q)
-        )
+      ? [...results].sort((a, b) => matchCount(b) - matchCount(a))
       : results
 
   return (
@@ -306,41 +259,7 @@ export default function SearchPage() {
         }}
       >
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          {/* Location row — above search bar */}
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
-            <Select
-              value={selectedCity}
-              onChange={handleCityChange}
-              style={{ width: 96 }}
-              size="middle"
-              options={cities.map((c) => ({ value: c.id, label: c.label }))}
-              suffixIcon={<EnvironmentOutlined style={{ fontSize: 12 }} />}
-              placeholder="City"
-            />
-            <Tooltip
-              title={
-                locAvailable
-                  ? 'Use my current location'
-                  : 'Location access denied — check browser settings'
-              }
-            >
-              <Button
-                icon={<AimOutlined />}
-                size="middle"
-                onClick={handleGetLocation}
-                loading={locLoading}
-                disabled={!locAvailable}
-                style={{
-                  borderColor: locAvailable ? PRIMARY_COLOR : '#E8E0D5',
-                  color: locAvailable ? PRIMARY_COLOR : '#C0BDB8',
-                  fontWeight: 400,
-                }}
-              >
-                Near me
-              </Button>
-            </Tooltip>
-          </div>
-          {/* Search bar */}
+          <LocationRow />
           <div style={{ marginBottom: 10 }}>
             <SearchBar
               value={q}
@@ -349,24 +268,12 @@ export default function SearchPage() {
               loading={parsing}
             />
           </div>
-          {/* 6 filter groups (no location) */}
-          <FilterBar
-            cities={cities}
-            selectedCity={selectedCity}
-            onCityChange={handleCityChange}
-            locAvailable={locAvailable}
-            locLoading={locLoading}
-            onGetLocation={handleGetLocation}
-            filters={filters}
-            onFilterChange={handleFilterChange}
-            hideLocation
-          />
+          <FilterBar filters={filters} onFilterChange={handleFilterChange} hideLocation />
         </div>
       </div>
 
       {/* Alerts */}
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '12px 24px 0' }}>
-        {/* LLM 解析结果 banner */}
         {parsing && (
           <Alert
             type="info"
@@ -402,18 +309,12 @@ export default function SearchPage() {
         )}
         {spellSuggestion && (
           <Alert type="info" showIcon closable
-            message={<span>Did you mean: <a onClick={() => push({ q: spellSuggestion, offset: 0 })}><strong>{spellSuggestion}</strong></a>?</span>}
+            message={<span>{t.search_did_you_mean} <a onClick={() => push({ q: spellSuggestion, offset: 0 })}><strong>{spellSuggestion}</strong></a>?</span>}
             style={{ marginBottom: 8 }} />
         )}
         {detectedDietLabels.length > 0 && (
           <Alert type="success" showIcon closable
-            message={`Detected dietary preferences: ${detectedDietLabels.join(', ')}`}
-            style={{ marginBottom: 8 }} />
-        )}
-        {crawlTriggered && (
-          <Alert type="warning" showIcon icon={<RocketOutlined />} closable
-            message={<span>Fetching more results from the web{countdown !== null ? `, refreshing in ${countdown}s…` : ''}</span>}
-            action={<Button size="small" icon={<ReloadOutlined />} onClick={() => doSearch()}>Refresh</Button>}
+            message={`${t.search_detected_diet} ${detectedDietLabels.join(', ')}`}
             style={{ marginBottom: 8 }} />
         )}
       </div>
@@ -422,8 +323,7 @@ export default function SearchPage() {
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 24px 32px' }}>
         {!loading && !error && total > 0 && (
           <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 13 }}>
-            {total} restaurant{total !== 1 ? 's' : ''} found
-            {(dietLabels.length > 0 || q) && ' · sorted by dish matches'}
+            {t.search_found(total)}
           </Text>
         )}
 
@@ -432,14 +332,7 @@ export default function SearchPage() {
         {/* 有已有结果时不用 Spin 遮罩，避免重新搜索时内容闪黑 */}
         <Spin spinning={loading && rankedResults.length === 0}>
           {rankedResults.length === 0 && !loading ? (
-            <Empty
-              style={{ marginTop: 48 }}
-              description={
-                crawlTriggered
-                  ? 'Fetching data from the web, please wait…'
-                  : 'No restaurants matched — try adjusting your filters'
-              }
-            />
+            <Empty style={{ marginTop: 48 }} description={t.search_no_results} />
           ) : (
             rankedResults.map((r) => (
               <RestaurantGroupCard

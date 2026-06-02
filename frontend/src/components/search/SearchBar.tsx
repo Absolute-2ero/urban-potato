@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AutoComplete, Button, Input } from 'antd'
 import { LoadingOutlined, SearchOutlined } from '@ant-design/icons'
 import { autocomplete } from '@/api/search'
@@ -6,26 +6,26 @@ import { PRIMARY_COLOR } from '@/constants'
 
 interface Props {
   value: string
-  onChange: (val: string) => void
   onSearch: (val: string) => void
+  onChange?: (val: string) => void
   placeholder?: string
+  city?: string
   loading?: boolean
 }
 
-export function SearchBar({ value, onChange, onSearch, placeholder, loading }: Props) {
+export function SearchBar({ value, onSearch, onChange, placeholder, city, loading }: Props) {
+  const [inputVal, setInputVal] = useState(value)
   const [options, setOptions] = useState<{ value: string }[]>([])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleSearch = async (text: string) => {
-    onChange(text)
+  useEffect(() => { setInputVal(value) }, [value])
+
+  const fetchSuggestions = (text: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (text.length < 1) {
-      setOptions([])
-      return
-    }
+    if (text.length < 1) { setOptions([]); return }
     debounceRef.current = setTimeout(async () => {
       try {
-        const suggestions = await autocomplete(text)
+        const suggestions = await autocomplete(text, city)
         setOptions(suggestions.map((s) => ({ value: s })))
       } catch {
         setOptions([])
@@ -35,15 +35,15 @@ export function SearchBar({ value, onChange, onSearch, placeholder, loading }: P
 
   return (
     <AutoComplete
-      value={value}
+      value={inputVal}
       options={options}
-      onSearch={handleSearch}
-      onSelect={(val) => { onChange(val); onSearch(val) }}
+      onChange={(text) => { setInputVal(text); onChange?.(text); fetchSuggestions(text) }}
+      onSelect={(val) => { setInputVal(val); onSearch(val) }}
       style={{ width: '100%' }}
     >
       <Input.Search
         size="large"
-        placeholder={placeholder ?? '搜索餐厅、菜系、饮食偏好…'}
+        placeholder={placeholder ?? 'Search restaurants, cuisine, dietary preferences…'}
         enterButton={
           <Button
             type="primary"
@@ -51,10 +51,10 @@ export function SearchBar({ value, onChange, onSearch, placeholder, loading }: P
             loading={loading}
             style={{ backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }}
           >
-            {loading ? '解析中' : '搜索'}
+            {loading ? '解析中' : 'Search'}
           </Button>
         }
-        onSearch={onSearch}
+        onSearch={() => onSearch(inputVal)}
       />
     </AutoComplete>
   )

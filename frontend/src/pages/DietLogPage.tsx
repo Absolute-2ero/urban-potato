@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Button, Empty, Popconfirm, Spin, Typography } from 'antd'
+import { Button, DatePicker, Empty, Popconfirm, Spin, Typography } from 'antd'
 import { DeleteOutlined, LeftOutlined, PlusOutlined, RightOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { useNavigate } from 'react-router-dom'
 import { deleteLog } from '@/api/diet'
 import { AddLogModal } from '@/components/diet/AddLogModal'
 import { useDietStore } from '@/stores/dietStore'
+import { useAuthStore } from '@/stores/authStore'
 import { PRIMARY_COLOR } from '@/constants'
+import { loadGoals, DEFAULT_GOALS } from '@/utils/prefs'
 import type { FoodLogEntry, MealType } from '@/types'
 
 const { Text } = Typography
@@ -17,7 +20,7 @@ const MEALS: { value: MealType; label: string; emoji: string; color: string }[] 
   { value: 'snack',     label: 'Snack',     emoji: '🍎', color: '#2D9B5A' },
 ]
 
-const DRI = { calories: 2000, protein_g: 60, fat_g: 65, carb_g: 300 }
+// DRI is loaded per-user from localStorage goals; DEFAULT_GOALS used as fallback
 
 function MacroCard({ label, value, max, unit, color }: {
   label: string; value: number; max: number; unit: string; color: string
@@ -73,10 +76,14 @@ function EntryRow({ entry, onDelete }: { entry: FoodLogEntry; onDelete: () => vo
 
 export default function DietLogPage() {
   const { logDay, loading, currentDate, loadLogs, setCurrentDate } = useDietStore()
+  const { user } = useAuthStore()
+  const DRI = user ? loadGoals(user.id) : DEFAULT_GOALS
+  const navigate = useNavigate()
   const [addOpen, setAddOpen] = useState(false)
   const [addMeal, setAddMeal] = useState<MealType | undefined>()
+  const [calOpen, setCalOpen] = useState(false)
 
-  useEffect(() => { loadLogs() }, [])
+  useEffect(() => { if (user) loadLogs() }, [user])
 
   const handleDelete = async (id: number) => {
     await deleteLog(id)
@@ -98,36 +105,85 @@ export default function DietLogPage() {
   const openAdd = (meal?: MealType) => { setAddMeal(meal); setAddOpen(true) }
 
   return (
-    <div style={{ background: '#F7F3EE', minHeight: 'calc(100vh - 52px)', padding: '24px 16px 60px' }}>
-      <div style={{ maxWidth: 680, margin: '0 auto' }}>
+    <div style={{ background: '#F7F3EE', minHeight: 'calc(100vh - 52px)', padding: '24px 16px 60px', position: 'relative' }}>
+
+      {/* Login gate overlay */}
+      {!user && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 10,
+          backdropFilter: 'blur(4px)',
+          background: 'rgba(247, 243, 238, 0.85)',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 16,
+        }}>
+          <div style={{ fontSize: 48 }}>🔒</div>
+          <Text strong style={{ fontSize: 18, color: '#1E2A2A' }}>Sign in to track your diet</Text>
+          <Text type="secondary" style={{ fontSize: 14, textAlign: 'center', maxWidth: 280 }}>
+            Log meals, track macros, and hit your daily goals — all in one place.
+          </Text>
+          <Button
+            type="primary" size="large"
+            onClick={() => navigate('/login')}
+            style={{ background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, borderRadius: 999, padding: '0 32px', marginTop: 4 }}
+          >
+            Sign in
+          </Button>
+        </div>
+      )}
+
+      <div style={{ maxWidth: 680, margin: '0 auto', filter: user ? 'none' : 'blur(2px)', pointerEvents: user ? 'auto' : 'none' }}>
 
         {/* Date navigation */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <Button type="text" icon={<LeftOutlined />} onClick={() => setCurrentDate(dayjs(currentDate).subtract(1, 'day').format('YYYY-MM-DD'))} />
+          <Button type="text" icon={<LeftOutlined />}
+            onClick={() => setCurrentDate(dayjs(currentDate).subtract(1, 'day').format('YYYY-MM-DD'))} />
+
           <div style={{ textAlign: 'center' }}>
-            <Text strong style={{ fontSize: 16 }}>{dateLabel}</Text>
+            {/* Clicking the date label opens the calendar */}
+            <DatePicker
+              value={dayjs(currentDate)}
+              open={calOpen}
+              onOpenChange={setCalOpen}
+              onChange={(d) => { if (d) { setCurrentDate(d.format('YYYY-MM-DD')); loadLogs() } }}
+              disabledDate={(d) => d.isAfter(dayjs(), 'day')}
+              allowClear={false}
+              inputReadOnly
+              style={{ opacity: 0, position: 'absolute', pointerEvents: 'none', width: 0 }}
+            />
+            <div
+              onClick={() => setCalOpen(true)}
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+            >
+              <Text strong style={{ fontSize: 16 }}>{dateLabel}</Text>
+              <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>tap to pick date</Text>
+            </div>
             {currentDate !== dayjs().format('YYYY-MM-DD') && (
-              <Button type="link" size="small" onClick={() => setCurrentDate(dayjs().format('YYYY-MM-DD'))} style={{ display: 'block', margin: '0 auto', padding: 0, height: 'auto', fontSize: 12 }}>
+              <Button type="link" size="small"
+                onClick={() => { setCurrentDate(dayjs().format('YYYY-MM-DD')); loadLogs() }}
+                style={{ display: 'block', margin: '0 auto', padding: 0, height: 'auto', fontSize: 12 }}>
                 Back to today
               </Button>
             )}
           </div>
-          <Button type="text" icon={<RightOutlined />} onClick={() => setCurrentDate(dayjs(currentDate).add(1, 'day').format('YYYY-MM-DD'))} />
+
+          <Button type="text" icon={<RightOutlined />}
+            disabled={currentDate === dayjs().format('YYYY-MM-DD')}
+            onClick={() => setCurrentDate(dayjs(currentDate).add(1, 'day').format('YYYY-MM-DD'))} />
         </div>
 
         {/* Macro summary */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
           <MacroCard label="Calories" value={totals.calories} max={DRI.calories} unit="kcal" color="#fa8c16" />
-          <MacroCard label="Protein" value={totals.protein_g} max={DRI.protein_g} unit="g" color={PRIMARY_COLOR} />
-          <MacroCard label="Fat" value={totals.fat_g} max={DRI.fat_g} unit="g" color="#f759ab" />
-          <MacroCard label="Carbs" value={totals.carb_g} max={DRI.carb_g} unit="g" color="#52c41a" />
+          <MacroCard label="Protein"  value={totals.protein_g} max={DRI.protein_g} unit="g" color={PRIMARY_COLOR} />
+          <MacroCard label="Fat"      value={totals.fat_g}     max={DRI.fat_g}     unit="g" color="#f759ab" />
+          <MacroCard label="Carbs"    value={totals.carb_g}    max={DRI.carb_g}    unit="g" color="#52c41a" />
         </div>
 
-        {/* Global add button */}
+        {/* Add button */}
         <Button
-          type="primary" icon={<PlusOutlined />} block size="large"
-          onClick={() => openAdd(undefined)}
+          type="primary" icon={<PlusOutlined />} size="large" block
           style={{ background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, borderRadius: 10, marginBottom: 20 }}
+          onClick={() => openAdd(undefined)}
         >
           Add entry
         </Button>
@@ -147,19 +203,14 @@ export default function DietLogPage() {
                       <Text type="secondary" style={{ fontSize: 12 }}>{Math.round(mealCal)} kcal</Text>
                     )}
                   </div>
-                  <Button
-                    size="small" type="text" icon={<PlusOutlined />}
-                    onClick={() => openAdd(mealType)}
-                    style={{ color: PRIMARY_COLOR, fontWeight: 600 }}
-                  >
+                  <Button size="small" type="text" icon={<PlusOutlined />}
+                    onClick={() => openAdd(mealType)} style={{ color: PRIMARY_COLOR, fontWeight: 600 }}>
                     Add
                   </Button>
                 </div>
                 {mealEntries.length === 0 ? (
-                  <div
-                    onClick={() => openAdd(mealType)}
-                    style={{ border: '1.5px dashed #E8E0D5', borderRadius: 10, padding: '12px', textAlign: 'center', cursor: 'pointer' }}
-                  >
+                  <div onClick={() => openAdd(mealType)}
+                    style={{ border: '1.5px dashed #E8E0D5', borderRadius: 10, padding: '12px', textAlign: 'center', cursor: 'pointer' }}>
                     <Text type="secondary" style={{ fontSize: 13 }}>+ Log your {label.toLowerCase()}</Text>
                   </div>
                 ) : (

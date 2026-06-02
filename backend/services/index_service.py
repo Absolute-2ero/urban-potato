@@ -38,35 +38,70 @@ _DEFAULT_MAPPING: Dict[str, Any] = {
     },
     "mappings": {
         "properties": {
+            # ── IDs ───────────────────────────────────────────────────────────
             "restaurant_id":  {"type": "keyword"},
+            "gaode_poi_id":   {"type": "keyword"},
+            "eleme_id":       {"type": "keyword"},
+
+            # ── 展示信息 ──────────────────────────────────────────────────────
             "name":           {"type": "text", "analyzer": "ik_max_analyzer",
                                "search_analyzer": "ik_smart_analyzer",
                                "copy_to": "name_suggest"},
             "name_suggest":   {"type": "completion"},
-            "description":    {"type": "text", "analyzer": "ik_smart_analyzer"},
+            "address":        {"type": "text", "analyzer": "ik_smart_analyzer"},
+            "district":       {"type": "keyword"},       # 区名，用于区域筛选
+
+            # ── 分类 ──────────────────────────────────────────────────────────
             "cuisine_type":   {"type": "text", "analyzer": "ik_smart_analyzer",
                                "fields": {"keyword": {"type": "keyword"}}},
-            "address":        {"type": "text", "analyzer": "ik_smart_analyzer"},
+            "typecode":       {"type": "keyword"},
+            "tags":           {"type": "keyword"},       # 短标签列表
+            "biz_type":       {"type": "text", "analyzer": "ik_smart_analyzer",
+                               "fields": {"keyword": {"type": "keyword"}}},
+
+            # ── 联系 ──────────────────────────────────────────────────────────
             "phone":          {"type": "keyword"},
-            "price_level":    {"type": "integer"},
+
+            # ── 经营数据 ──────────────────────────────────────────────────────
             "rating":         {"type": "float"},
             "rating_count":   {"type": "integer"},
-            "geo": {"type": "geo_point"},
+            "avg_cost":       {"type": "float"},
+            "price_level":    {"type": "integer"},
+            "opening_hours":  {"type": "keyword"},
+
+            # ── 位置 ──────────────────────────────────────────────────────────
+            "geo":            {"type": "geo_point"},
+
+            # ── 饮食标签 ──────────────────────────────────────────────────────
             "diet_labels":    {"type": "keyword"},
             "allergens":      {"type": "keyword"},
             "allergen_free":  {"type": "keyword"},
-            "business_hours": {"type": "keyword"},
+
+            # ── 媒体 ──────────────────────────────────────────────────────────
             "images":         {"type": "keyword", "index": False},
+
+            # ── 元数据 ────────────────────────────────────────────────────────
             "source":         {"type": "keyword"},
+            "city":           {"type": "keyword"},   # "hongkong" | "beijing" | …
+
+            # ── 菜单（nested，每道菜可单独匹配/评分）─────────────────────────
             "menu_items": {
                 "type": "nested",
                 "properties": {
-                    "item_id":    {"type": "keyword"},
-                    "name":       {"type": "text", "analyzer": "ik_max_analyzer"},
-                    "price":      {"type": "float"},
-                    "diet_labels":{"type": "keyword"},
-                    "allergens":  {"type": "keyword"},
-                    "calories":   {"type": "float"},
+                    "food_id":     {"type": "keyword"},
+                    "item_id":     {"type": "keyword"},
+                    "name":        {"type": "text", "analyzer": "ik_max_analyzer"},
+                    "name_en":     {"type": "text", "analyzer": "standard"},
+                    "description": {"type": "text", "analyzer": "ik_smart_analyzer"},
+                    "price":       {"type": "float"},
+                    "image_url":   {"type": "keyword", "index": False},
+                    # Gemini 填充
+                    "calories":    {"type": "float"},
+                    "protein":     {"type": "float"},
+                    "fat":         {"type": "float"},
+                    "carbs":       {"type": "float"},
+                    "diet_labels": {"type": "keyword"},
+                    "allergens":   {"type": "keyword"},
                 },
             },
         }
@@ -112,27 +147,9 @@ async def rebuild_index() -> None:
     logger.info("ES index '%s' rebuilt", _INDEX)
 
 
-_BULK_CHUNK = 500   # 每批文档数，控制单次请求大小
-
-
-def _build_actions(documents: List[Dict[str, Any]]) -> List[Dict]:
-    actions: List[Dict] = []
-    for doc in documents:
-        rid = doc.get("restaurant_id") or doc.get("_id")
-        if not rid:
-            continue
-        actions.append({"index": {"_index": _INDEX, "_id": rid}})
-        if "geo" in doc and isinstance(doc["geo"], dict):
-            g = doc["geo"]
-            doc = dict(doc)
-            doc["geo"] = {"lat": g.get("lat", 0), "lon": g.get("lng", 0)}
-        actions.append(doc)
-    return actions
-
-
 async def bulk_index(documents: List[Dict[str, Any]]) -> int:
     """
-    批量写入餐厅文档，每批 _BULK_CHUNK 条，最后统一 refresh。
+    批量写入餐厅文档。
     documents: List of restaurant dicts with 'restaurant_id' field.
     返回成功索引的文档数。
     """
@@ -140,21 +157,26 @@ async def bulk_index(documents: List[Dict[str, Any]]) -> int:
         return 0
 
     es = get_es()
-    all_actions = _build_actions(documents)
-    total_errors = 0
+    actions: List[Dict] = []
+    for doc in documents:
+        rid = doc.get("restaurant_id") or doc.get("_id")
+        if not rid:
+            continue
+        actions.append({"index": {"_index": _INDEX, "_id": rid}})
+        # geo 字段: ES geo_point 用 lat/lon，但我们存的是 {lat, lng}
+        # 转换 lng → lon
+        if "geo" in doc and isinstance(doc["geo"], dict):
+            g = doc["geo"]
+            doc = dict(doc)
+            doc["geo"] = {"lat": g.get("lat") or 0, "lon": g.get("lng") or 0}
+        actions.append(doc)
 
-    for i in range(0, len(all_actions), _BULK_CHUNK * 2):   # *2 因为每条文档占两个元素
-        chunk = all_actions[i : i + _BULK_CHUNK * 2]
-        resp  = await es.bulk(operations=chunk, refresh=False)
-        errs  = [item for item in resp["items"] if "error" in item.get("index", {})]
-        if errs:
-            logger.warning("Bulk chunk errors: %d  sample: %s", len(errs), errs[0])
-        total_errors += len(errs)
+    resp = await es.bulk(operations=actions, refresh="wait_for")
+    errors = [item for item in resp["items"] if "error" in item.get("index", {})]
+    if errors:
+        logger.warning("Bulk index had %d errors: %s", len(errors), errors[:3])
 
-    # 所有批次写完后统一触发一次 refresh
-    await es.indices.refresh(index=_INDEX)
-
-    success = len(documents) - total_errors
+    success = len(documents) - len(errors)
     logger.info("Bulk indexed %d/%d documents into '%s'", success, len(documents), _INDEX)
     return success
 
@@ -168,5 +190,5 @@ async def index_restaurant(doc: Dict[str, Any]) -> None:
     if "geo" in doc and isinstance(doc["geo"], dict):
         g = doc["geo"]
         doc = dict(doc)
-        doc["geo"] = {"lat": g.get("lat", 0), "lon": g.get("lng", 0)}
+        doc["geo"] = {"lat": g.get("lat") or 0, "lon": g.get("lng") or 0}
     await es.index(index=_INDEX, id=rid, document=doc)

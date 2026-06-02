@@ -21,7 +21,9 @@ export interface UserLogin {
 export type DietLabel =
   | 'vegan' | 'vegetarian' | 'halal' | 'kosher' | 'organic'
   | 'gluten-free' | 'dairy-free' | 'keto' | 'high-protein' | 'low-carb'
-  | 'low-calorie' | 'low-sodium' | 'nut-free' | 'shellfish-free' | 'soy-free'
+  | 'low-calorie' | 'low-sodium' | 'low-fat' | 'low-sugar' | 'low-oil'
+  | 'nut-free' | 'peanut-free' | 'shellfish-free' | 'seafood-free'
+  | 'soy-free' | 'no-spicy' | 'light-meal'
 
 export interface DietProfile {
   user_id: string
@@ -122,6 +124,7 @@ export interface LabelWithConfidence {
 export interface Restaurant {
   restaurant_id: string
   name: string
+  name_en?: string
   description?: string
   cuisine_type?: string
   address?: string
@@ -139,7 +142,8 @@ export interface Restaurant {
   allergen_free_detail?: LabelWithConfidence[]
   images?: string[]
   menu_items?: MenuItem[]
-  // 排序附加字段
+  matched_dishes?: MenuItem[]   // server-side inner_hits from ES nested query
+  // ranking fields
   _final_score?: number
   _distance_m?: number
   _allergen_warning?: string[]
@@ -166,6 +170,7 @@ export interface ParsedQuery {
 }
 
 export interface SearchParams {
+  city?: string
   q?: string
   diet_labels?: DietLabel[]
   price_levels?: number[]
@@ -178,6 +183,11 @@ export interface SearchParams {
   sort_mode?: string
   offset?: number
   limit?: number
+  min_rating?: number
+  min_price?: number
+  max_price?: number
+  min_calories?: number
+  max_calories?: number
 }
 
 export interface SearchResponse {

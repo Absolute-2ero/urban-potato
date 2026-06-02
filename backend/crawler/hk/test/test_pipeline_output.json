@@ -1,0 +1,949 @@
+{
+  "openrice": {
+    "name": "Flames (海濱匯)",
+    "district": "Kwun Tong",
+    "cuisine_type": "International",
+    "images": [
+      "https://static8.orstatic.com/userphoto2/photo/24/1OM0/0BZ0LR2989AA5346A63DF6px.webp?og=1"
+    ],
+    "menu_items": [
+      {
+        "name": "Peri Peri (Half) with Salad",
+        "category": "主菜",
+        "price": 118.0,
+        "description": "",
+        "name_en": "Peri Peri Chicken (Half) with Salad",
+        "name_zh": "葡汁烤雞（半隻）配沙律",
+        "calories": 620,
+        "protein": 68.0,
+        "fat": 32.0,
+        "carbs": 12.0,
+        "diet_labels": [
+          "high-protein",
+          "gluten-free",
+          "dairy-free",
+          "nut-free",
+          "shellfish-free"
+        ],
+        "allergens": []
+      },
+      {
+        "name": "Peri Peri (Half) with Rice",
+        "category": "主菜",
+        "price": 108.0,
+        "description": "",
+        "name_en": "Peri Peri Chicken (Half) with Rice",
+        "name_zh": "葡汁烤雞（半隻）配白飯",
+        "calories": 880,
+        "protein": 70.0,
+        "fat": 32.0,
+        "carbs": 82.0,
+        "diet_labels": [
+          "high-protein",
+          "dairy-free",
+          "nut-free",
+          "shellfish-free"
+        ],
+        "allergens": []
+      },
+      {
+        "name": "Peri Peri (Half) with Fries",
+        "category": "主菜",
+        "price": 108.0,
+        "description": "",
+        "name_en": "Peri Peri Chicken (Half) with Fries",
+        "name_zh": "葡汁烤雞（半隻）配薯條",
+        "calories": 950,
+        "protein": 69.0,
+        "fat": 48.0,
+        "carbs": 65.0,
+        "diet_labels": [
+          "high-protein",
+          "dairy-free",
+          "nut-free",
+          "shellfish-free"
+        ],
+        "allergens": []
+      },
+      {
+        "name": "NZ Rib Eye Steak (8oz)",
+        "category": "主菜",
+        "price": 258.0,
+        "description": "",
+        "name_en": "NZ Rib Eye Steak (8oz)",
+        "name_zh": "紐西蘭肉眼牛扒（8安士）",
+        "calories": 650,
+        "protein": 58.0,
+        "fat": 45.0,
+        "carbs": 2.0,
+        "diet_labels": [
+          "high-protein",
+          "keto",
+          "low-carb",
+          "gluten-free",
+          "dairy-free",
+          "nut-free",
+          "shellfish-free",
+          "soy-free"
+        ],
+        "allergens": []
+      },
+      {
+        "name": "Peri Peri (Qtr) with Rice",
+        "category": "主菜",
+        "price": 80.0,
+        "description": "",
+        "name_en": "Peri Peri Chicken (Quarter) with Rice",
+        "name_zh": "葡汁烤雞（四分之一隻）配白飯",
+        "calories": 540,
+        "protein": 38.0,
+        "fat": 18.0,
+        "carbs": 58.0,
+        "diet_labels": [
+          "high-protein",
+          "dairy-free",
+          "nut-free",
+          "shellfish-free",
+          "light-meal"
+        ],
+        "allergens": []
+      },
+      {
+        "name": "Peri Peri (Qtr) with Fries",
+        "category": "主菜",
+        "price": 85.0,
+        "description": ""
+      },
+      {
+        "name": "Peri Peri (Qtr) with Salad",
+        "category": "主菜",
+        "price": 95.0,
+        "description": ""
+      },
+      {
+        "name": "Fish & Chips",
+        "category": "主菜",
+        "price": 148.0,
+        "description": ""
+      },
+      {
+        "name": "Aloha",
+        "category": "Pizza Pasta",
+        "price": 118.0,
+        "description": ""
+      },
+      {
+        "name": "Nduja Pizza",
+        "category": "Pizza Pasta",
+        "price": 128.0,
+        "description": ""
+      },
+      {
+        "name": "Portobello Pancetta Pizza",
+        "category": "Pizza Pasta",
+        "price": 128.0,
+        "description": ""
+      },
+      {
+        "name": "Margherita Pizza",
+        "category": "Pizza Pasta",
+        "price": 118.0,
+        "description": ""
+      },
+      {
+        "name": "Beef Ragu Linguine",
+        "category": "Pizza Pasta",
+        "price": 108.0,
+        "description": ""
+      },
+      {
+        "name": "Carbonara Linguine",
+        "category": "Pizza Pasta",
+        "price": 88.0,
+        "description": ""
+      },
+      {
+        "name": "Black Truffle Mushroom Linguine",
+        "category": "Pizza Pasta",
+        "price": 88.0,
+        "description": ""
+      },
+      {
+        "name": "Coke - 330ml",
+        "category": "Drinks OpenRice Takeaway Offer - After 20% off",
+        "price": 18.0,
+        "description": ""
+      },
+      {
+        "name": "Coke Zero - 330ml",
+        "category": "Drinks OpenRice Takeaway Offer - After 20% off",
+        "price": 18.0,
+        "description": ""
+      },
+      {
+        "name": "Perrier Sparkling Mineral Water - 330ml",
+        "category": "Drinks OpenRice Takeaway Offer - After 20% off",
+        "price": 32.0,
+        "description": ""
+      },
+      {
+        "name": "Sprite - 330ml",
+        "category": "Drinks OpenRice Takeaway Offer - After 20% off",
+        "price": 18.0,
+        "description": ""
+      }
+    ],
+    "address": "Shop 2, 1/F, The Quayside, 77 Hoi Bun Road, Kwun Tong 觀塘海濱道77號海濱匯1樓2號舖",
+    "price_level": 0,
+    "rating": 4.8,
+    "rating_count": 1278,
+    "phone": "28976638",
+    "opening_hours": "Mon - Sun: 12:00 - 22:00",
+    "price_range": "$101-200",
+    "smile_counts": [
+      1123,
+      50,
+      23
+    ],
+    "restaurant_id": "openrice_649544",
+    "openrice_id": "649544",
+    "openrice_url": "https://www.openrice.com/en/hongkong/menu/649544/takeaway?source=takeaway",
+    "source": "openrice",
+    "city": "香港",
+    "geo": {
+      "lat": 22.31656,
+      "lng": 114.2137
+    },
+    "diet_labels": [
+      "shellfish-free",
+      "high-protein",
+      "soy-free",
+      "nut-free",
+      "dairy-free",
+      "gluten-free",
+      "light-meal",
+      "keto",
+      "low-carb"
+    ],
+    "allergens": [
+      "fish"
+    ],
+    "allergen_free": [],
+    "tags": [],
+    "name_en": "Flames (The Quayside)",
+    "name_zh": "Flames (海濱匯)"
+  },
+  "foodpanda": {
+    "restaurant_id": "foodpanda_cn9a",
+    "foodpanda_id": "cn9a",
+    "foodpanda_url": "https://www.foodpanda.hk/restaurant/cn9a/7-eleven-tung-ming-building-central-1728?opening_type=pickup",
+    "source": "foodpanda",
+    "city": "香港",
+    "name": "7-Eleven (Tung Ming Building, Central) 1728",
+    "address": "G/F & B/F, Tung Ming Building, 40-42 Des Voeux Road Central, Central",
+    "district": "",
+    "cuisine_type": "Asian",
+    "price_level": 0,
+    "rating": 4.8,
+    "rating_count": 25,
+    "phone": "",
+    "opening_hours": "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday 00:00-23:59",
+    "images": [],
+    "menu_items": [
+      {
+        "name": "7CAFÉ Iced Cafe Latte",
+        "category": "Popular",
+        "price": null,
+        "description": "",
+        "name_en": "7CAFÉ Iced Cafe Latte",
+        "name_zh": "7CAFÉ 冰鮮奶咖啡",
+        "calories": 115,
+        "protein": 5.2,
+        "fat": 4.8,
+        "carbs": 12.5,
+        "diet_labels": [
+          "vegetarian",
+          "nut-free"
+        ],
+        "allergens": [
+          "dairy"
+        ]
+      },
+      {
+        "name": "7-SELECT X TAMJAI SAMGOR TUFEI SHREDDED CHICKEN HOT WRAP",
+        "category": "Limited time offer",
+        "price": null,
+        "description": "",
+        "name_en": "7-SELECT X TAMJAI SAMGOR TUFEI SHREDDED CHICKEN HOT WRAP",
+        "name_zh": "7-SELECT x 譚仔三哥土匪雞肉卷",
+        "calories": 380,
+        "protein": 18.5,
+        "fat": 15.2,
+        "carbs": 42.0,
+        "diet_labels": [
+          "high-protein"
+        ],
+        "allergens": [
+          "gluten",
+          "soy",
+          "sesame"
+        ]
+      },
+      {
+        "name": "7CAFÉ Hot Americano",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": "",
+        "name_en": "7CAFÉ Hot Americano",
+        "name_zh": "7CAFÉ 熱美式咖啡",
+        "calories": 5,
+        "protein": 0.3,
+        "fat": 0.1,
+        "carbs": 0.5,
+        "diet_labels": [
+          "vegan",
+          "vegetarian",
+          "halal",
+          "kosher",
+          "gluten-free",
+          "dairy-free",
+          "keto",
+          "low-carb",
+          "low-calorie",
+          "low-sodium",
+          "nut-free",
+          "shellfish-free",
+          "soy-free",
+          "light-meal"
+        ],
+        "allergens": []
+      },
+      {
+        "name": "7CAFÉ Iced Americano",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": "",
+        "name_en": "7CAFÉ Iced Americano",
+        "name_zh": "7CAFÉ 冰美式咖啡",
+        "calories": 5,
+        "protein": 0.3,
+        "fat": 0.1,
+        "carbs": 0.5,
+        "diet_labels": [
+          "vegan",
+          "vegetarian",
+          "halal",
+          "kosher",
+          "gluten-free",
+          "dairy-free",
+          "keto",
+          "low-carb",
+          "low-calorie",
+          "low-sodium",
+          "nut-free",
+          "shellfish-free",
+          "soy-free",
+          "light-meal"
+        ],
+        "allergens": []
+      },
+      {
+        "name": "7CAFÉ Hot Cafe Cappuccino",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": "",
+        "name_en": "7CAFÉ Hot Cafe Cappuccino",
+        "name_zh": "7CAFÉ 熱泡沫咖啡",
+        "calories": 95,
+        "protein": 4.8,
+        "fat": 4.2,
+        "carbs": 9.5,
+        "diet_labels": [
+          "vegetarian",
+          "nut-free"
+        ],
+        "allergens": [
+          "dairy"
+        ]
+      },
+      {
+        "name": "7CAFÉ Iced Cafe Cappuccino",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7CAFÉ Hot Cafe Latte",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7CAFÉ Iced Cafe Latte",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7CAFÉ Hot Cafe Mocha",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7CAFÉ Iced Cafe Mocha",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7CAFÉ Hot Hazelnut Latte",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7CAFÉ Iced Hazelnut Latte",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7CAFÉ Hot Flat White",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7CAFÉ Iced Flat White",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7CAFÉ Hot Oat Milk Coffee",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7CAFÉ Iced Oat Milk Coffee",
+        "category": "7CAFÉ",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7-SELECT Awayuki Strawberry Mini Cream Puff",
+        "category": "Chilled Snacks/ Dessert",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7-SELECT Mochi Milk Cream Roll",
+        "category": "Chilled Snacks/ Dessert",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "IMPERIAL BIG MEAL Noodle - Super Hot Pot",
+        "category": "Cup Noodles",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "NISSIN Big Cup Noodles - Seafood",
+        "category": "Cup Noodles",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "NISSIN Big Cup Noodles -Spicy Seafood",
+        "category": "Cup Noodles",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "GARDEN BUN - CREAM",
+        "category": "Bakery",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "GARDEN BUN - PEANUT",
+        "category": "Bakery",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Garden Roll - Chocolate",
+        "category": "Bakery",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Garden Roll - Peanut",
+        "category": "Bakery",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "GARDEN MILK BAR BUN",
+        "category": "Bakery",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "VITA Low Sugar Chocolate Milk Beverage 250ml",
+        "category": "Dairy",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Vitasoy Soyabean Milk 330ml",
+        "category": "Dairy",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Vitasoy Malted Soyabean Milk 330ml",
+        "category": "Dairy",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "VITASOY Calci-Plus Hi-Calcium Oat Soya Milk 330ml",
+        "category": "Dairy",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "VITA Chocolate Milk Beverage 250ml",
+        "category": "Dairy",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "OVALTINE Rich Chocolate Malted Milk Drink 250ml",
+        "category": "Dairy",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Binggrae Banana Flavored Milk 200ml",
+        "category": "Dairy",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Yi Bun No Added Sugar Soymilk 500ml",
+        "category": "Dairy",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7-SELECT GRAPEFRUIT JUICE",
+        "category": "Juice",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7-SELECT Kiwifruit Pineapple Mix Juice",
+        "category": "Juice",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7-SELECT MANGO LEMON MIX JUICE",
+        "category": "Juice",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "VITA Lemon Tea 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "VITA Hks Milk Tea 480ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "VITA Lemon Tea 330ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Coca Cola No Sugar 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Authentic Tea House Dahongpao Oolong Tea 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Authentic Tea Hous Yinhao Jasmine Green Tea 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Coca Cola 888ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Monster Energy Drink 355ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Bonaqua Mineral Water 770ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Coca Cola 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Fanta Orange Soda 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Schweppes Cream Soda 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Sprite Pet 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Bonaqua Mineral Water 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Pocari Sweat Ion Supply Drink 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Pocari Sweat Ion Supply Drink 900ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "IF coconut Water 350ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "ITO EN Japan Green Tea 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Robiff Oolong Tea 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Red Bull Energy Drink 250ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "UCC Black Coffee Full Body 375g",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Asahi Wonda Black Coffee 400ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7-SELECT French Spring Water 500ml",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "7 PREMIUM Black Coffee 375g",
+        "category": "Beverages",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "SKOL Beer King Can 500ml",
+        "category": "Alcoholic Drinks",
+        "price": null,
+        "description": "Under the law of Hong Kong, intoxicating liquor must not be sold or supplied to a minor (under 18) in the course of business."
+      },
+      {
+        "name": "Blue Ice Beer King Can 500ml",
+        "category": "Alcoholic Drinks",
+        "price": null,
+        "description": "Under the law of Hong Kong, intoxicating liquor must not be sold or supplied to a minor (under 18) in the course of business."
+      },
+      {
+        "name": "San Miguel Beer King Can 500ml",
+        "category": "Alcoholic Drinks",
+        "price": null,
+        "description": "Under the law of Hong Kong, intoxicating liquor must not be sold or supplied to a minor (under 18) in the course of business."
+      },
+      {
+        "name": "Tsing Tao Beer King Can 500ml",
+        "category": "Alcoholic Drinks",
+        "price": null,
+        "description": "Under the law of Hong Kong, intoxicating liquor must not be sold or supplied to a minor (under 18) in the course of business."
+      },
+      {
+        "name": "Blue Girl Beer King Can 500ml",
+        "category": "Alcoholic Drinks",
+        "price": null,
+        "description": "Under the law of Hong Kong, intoxicating liquor must not be sold or supplied to a minor (under 18) in the course of business."
+      },
+      {
+        "name": "Blue Girl Beer 4-Pack 330ml",
+        "category": "Alcoholic Drinks",
+        "price": null,
+        "description": "Under the law of Hong Kong, intoxicating liquor must not be sold or supplied to a minor (under 18) in the course of business."
+      },
+      {
+        "name": "Blue Girl Beer 4-Pack 500ml",
+        "category": "Alcoholic Drinks",
+        "price": null,
+        "description": "Under the law of Hong Kong, intoxicating liquor must not be sold or supplied to a minor (under 18) in the course of business."
+      },
+      {
+        "name": "Heineken Beer King Can 500ml",
+        "category": "Alcoholic Drinks",
+        "price": null,
+        "description": "Under the law of Hong Kong, intoxicating liquor must not be sold or supplied to a minor (under 18) in the course of business."
+      },
+      {
+        "name": "Heineken Beer 4-Pack 500ml",
+        "category": "Alcoholic Drinks",
+        "price": null,
+        "description": "Under the law of Hong Kong, intoxicating liquor must not be sold or supplied to a minor (under 18) in the course of business."
+      },
+      {
+        "name": "Asahi Super Dry Beer King Can 500ml",
+        "category": "Alcoholic Drinks",
+        "price": null,
+        "description": "Under the law of Hong Kong, intoxicating liquor must not be sold or supplied to a minor (under 18) in the course of business."
+      },
+      {
+        "name": "Asahi Beer 4-Pack 330ml",
+        "category": "Alcoholic Drinks",
+        "price": null,
+        "description": "Under the law of Hong Kong, intoxicating liquor must not be sold or supplied to a minor (under 18) in the course of business."
+      },
+      {
+        "name": "Asahi Dry Crystal King Can 500ml",
+        "category": "Alcoholic Drinks",
+        "price": null,
+        "description": "Under the law of Hong Kong, intoxicating liquor must not be sold or supplied to a minor (under 18) in the course of business."
+      },
+      {
+        "name": "UHA Cororo Grape Juice Soft Candy 48g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "CALBEE Pizza Potato Chips 55g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "GLICO Pocky Chocolate 52g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "Calbee BBQ Flavoured Shrimp Crisps 80G",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "CALBEE Bbq Flavored Potato Chips 55g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "CALBEE Hot & Spicy Flavored Potato Chips 55g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "CALBEE Prawn Cracker 90g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "CALBEE Grill-A-Corn 80g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "LADYBIRD Seasoned Cuttlefish 21g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "NIMM2 Orange & Lemon Candies 50g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "MALTESERS Chocolate 37g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "MALTESERS Dark Chocolate 37g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "M&M'S Plain Chocolate 37g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "KINDER Joy T1 Blue",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "KINDER Bueno T2",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "LAY'S Regular Potato Chips 50g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "DORITOS Nacho Cheese Potato Chips 65g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "MEADOWS Nature's Heart Unsalted Almond & Cashews 40g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "WEI LONG Konjac Strips Spicy 50g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "WEI LONG Konjac Strips Sour & Hot 50g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "NATURAL IS BEST Crispy Squid (Spicy) 60g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "TAO KAE NOI Big Sheet Pocket 28.8g",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      },
+      {
+        "name": "TAO KAE NOI Big Sheet Pocket 28.8g - Spicy Flavour",
+        "category": "Snacks",
+        "price": null,
+        "description": ""
+      }
+    ],
+    "diet_labels": [
+      "shellfish-free",
+      "high-protein",
+      "soy-free",
+      "light-meal",
+      "keto",
+      "low-calorie",
+      "vegan",
+      "dairy-free",
+      "low-sodium",
+      "low-carb",
+      "nut-free",
+      "vegetarian",
+      "gluten-free",
+      "kosher",
+      "halal"
+    ],
+    "allergens": [
+      "peanut",
+      "tree_nut",
+      "dairy",
+      "shellfish",
+      "soy"
+    ],
+    "allergen_free": [],
+    "geo": {
+      "lat": null,
+      "lng": null
+    },
+    "tags": [],
+    "name_en": "7-Eleven (Tung Ming Building, Central) 1728",
+    "name_zh": "7-Eleven (中環同明大廈) 1728"
+  }
+}

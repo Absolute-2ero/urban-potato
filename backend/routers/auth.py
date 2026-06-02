@@ -37,6 +37,16 @@ async def logout(request: Request) -> dict:
     return {"message": "Logged out"}
 
 
+@router.delete("/me")
+async def delete_me(request: Request) -> dict:
+    user_id = request.session.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    await auth_service.delete_user(user_id)
+    request.session.clear()
+    return {"message": "Account deleted"}
+
+
 @router.get("/me", response_model=User)
 async def me(request: Request) -> User:
     user_id: str | None = request.session.get("user_id")

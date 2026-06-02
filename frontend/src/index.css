@@ -16,6 +16,14 @@ a {
   text-decoration: none;
 }
 
+/* Matched menu row highlight */
+.matched-row td {
+  background: #f0faf4 !important;
+}
+.matched-row:hover td {
+  background: #e2f5ea !important;
+}
+
 /* 滚动条美化 */
 ::-webkit-scrollbar {
   width: 6px;

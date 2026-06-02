@@ -1,36 +1,43 @@
 import { useEffect, useState } from 'react'
-import { Button, Modal, Typography, message } from 'antd'
-import { CheckOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Button, DatePicker, InputNumber, Modal, Typography, message } from 'antd'
+import { CheckOutlined, DeleteOutlined, DownloadOutlined } from '@ant-design/icons'
+import type { Dayjs } from 'dayjs'
+import dayjs from 'dayjs'
+import { exportLogs } from '@/api/diet'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
-import { loadPrefs, savePrefs, type SavedPrefs } from '@/utils/prefs'
+import { loadPrefs, savePrefs, loadGoals, saveGoals, DEFAULT_GOALS, type SavedPrefs, type DailyGoals } from '@/utils/prefs'
+import { notifyMac } from '@/stores/macStore'
 import { PRIMARY_COLOR } from '@/constants'
 
 const { Title, Text } = Typography
 
 const NUTRITION_OPTIONS = [
-  { value: 'low_fat', label: 'Low-fat', emoji: '💧' },
-  { value: 'low_sugar', label: 'Low-sugar', emoji: '🍬' },
-  { value: 'low_sodium', label: 'Low-sodium', emoji: '🧂' },
+  { value: 'none',         label: 'None',        emoji: '' },
+  { value: 'low_fat',      label: 'Low-fat',      emoji: '💧' },
+  { value: 'low_sugar',    label: 'Low-sugar',    emoji: '🍬' },
+  { value: 'low_sodium',   label: 'Low-sodium',   emoji: '🧂' },
   { value: 'high_protein', label: 'High-protein', emoji: '💪' },
-  { value: 'no_added_oil', label: 'Low oil', emoji: '🫙' },
+  { value: 'no_added_oil', label: 'Low oil',      emoji: '🫙' },
 ]
 
 const DIET_OPTIONS = [
+  { value: 'none',       label: 'None',       emoji: '' },
   { value: 'vegetarian', label: 'Vegetarian', emoji: '🥗' },
-  { value: 'vegan', label: 'Vegan', emoji: '🌿' },
-  { value: 'halal', label: 'Halal', emoji: '☪️' },
-  { value: 'kosher', label: 'Kosher', emoji: '✡️' },
-  { value: 'keto', label: 'Keto', emoji: '🥑' },
+  { value: 'vegan',      label: 'Vegan',      emoji: '🌿' },
+  { value: 'halal',      label: 'Halal',      emoji: '☪️' },
+  { value: 'kosher',     label: 'Kosher',     emoji: '✡️' },
+  { value: 'keto',       label: 'Keto',       emoji: '🥑' },
 ]
 
 const ALLERGY_OPTIONS = [
-  { value: 'peanut-free', label: 'Peanut-free', emoji: '🥜', isDietLabel: false },
-  { value: 'dairy-free', label: 'Dairy-free', emoji: '🥛', isDietLabel: true },
-  { value: 'gluten-free', label: 'Gluten-free', emoji: '🌾', isDietLabel: true },
+  { value: 'none',         label: 'None',         emoji: '', isDietLabel: false },
+  { value: 'peanut-free',  label: 'Peanut-free',  emoji: '🥜', isDietLabel: false },
+  { value: 'dairy-free',   label: 'Dairy-free',   emoji: '🥛', isDietLabel: true },
+  { value: 'gluten-free',  label: 'Gluten-free',  emoji: '🌾', isDietLabel: true },
   { value: 'seafood-free', label: 'Seafood-free', emoji: '🦐', isDietLabel: false },
-  { value: 'soy-free', label: 'Soy-free', emoji: '🫘', isDietLabel: false },
-  { value: 'no_spicy', label: 'No spicy', emoji: '🌶️', isDietLabel: false },
+  { value: 'soy-free',     label: 'Soy-free',     emoji: '🫘', isDietLabel: false },
+  { value: 'no_spicy',     label: 'No spicy',     emoji: '🌶️', isDietLabel: false },
 ]
 
 function ToggleChips({
@@ -62,7 +69,7 @@ function ToggleChips({
               cursor: 'pointer', outline: 'none', transition: 'all 0.15s',
             }}
           >
-            <span>{opt.emoji}</span>
+            {opt.emoji && <span>{opt.emoji}</span>}
             <span>{opt.label}</span>
             {active && <CheckOutlined style={{ fontSize: 10 }} />}
           </button>
@@ -92,10 +99,17 @@ export default function ProfilePage() {
   const { user, deleteAccount } = useAuthStore()
   const navigate = useNavigate()
   const [prefs, setPrefs] = useState<SavedPrefs>({ nutritionLabels: [], dietLabels: [], allergyRestrictions: [] })
+  const [goals, setGoals] = useState<DailyGoals>(DEFAULT_GOALS)
   const [deleting, setDeleting] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportRange, setExportRange] = useState<[Dayjs, Dayjs]>([dayjs().subtract(30, 'day'), dayjs()])
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
-    if (user) setPrefs(loadPrefs(user.id))
+    if (user) {
+      setPrefs(loadPrefs(user.id))
+      setGoals(loadGoals(user.id))
+    }
   }, [user?.id])
 
   if (!user) {
@@ -112,20 +126,28 @@ export default function ProfilePage() {
   const toggleNutrition = (v: string) =>
     setPrefs((p) => ({
       ...p,
-      nutritionLabels: p.nutritionLabels.includes(v)
-        ? p.nutritionLabels.filter((x) => x !== v)
-        : [...p.nutritionLabels, v],
+      nutritionLabels: v === 'none'
+        ? []
+        : p.nutritionLabels.includes(v)
+          ? p.nutritionLabels.filter((x) => x !== v)
+          : [...p.nutritionLabels, v],
     }))
 
   const toggleDiet = (v: string) =>
     setPrefs((p) => ({
       ...p,
-      dietLabels: p.dietLabels.includes(v)
-        ? p.dietLabels.filter((x) => x !== v)
-        : [...p.dietLabels, v],
+      dietLabels: v === 'none'
+        ? []
+        : p.dietLabels.includes(v)
+          ? p.dietLabels.filter((x) => x !== v)
+          : [...p.dietLabels, v],
     }))
 
   const toggleAllergy = (v: string) => {
+    if (v === 'none') {
+      setPrefs((p) => ({ ...p, dietLabels: p.dietLabels.filter((x) => !ALLERGY_OPTIONS.some((o) => o.value === x)), allergyRestrictions: [] }))
+      return
+    }
     const opt = ALLERGY_OPTIONS.find((o) => o.value === v)!
     if (opt.isDietLabel) {
       setPrefs((p) => ({
@@ -151,7 +173,28 @@ export default function ProfilePage() {
 
   const handleSave = () => {
     savePrefs(user.id, prefs)
+    saveGoals(user.id, goals)
     message.success('Preferences saved')
+    notifyMac('prefs_saved', true)
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const blob = await exportLogs(
+        exportRange[0].format('YYYY-MM-DD'),
+        exportRange[1].format('YYYY-MM-DD'),
+      )
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `diet_${exportRange[0].format('YYYY-MM-DD')}_${exportRange[1].format('YYYY-MM-DD')}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      setExportOpen(false)
+    } finally {
+      setExporting(false)
+    }
   }
 
   const handleDeleteAccount = () => {
@@ -204,17 +247,56 @@ export default function ProfilePage() {
 
         {/* Health */}
         <PrefSection emoji="🥗" title="Health" subtitle="Nutritional goals applied to every search" color="#6A1B9A">
-          <ToggleChips options={NUTRITION_OPTIONS} selected={prefs.nutritionLabels} color="#6A1B9A" onToggle={toggleNutrition} />
+          <ToggleChips
+            options={NUTRITION_OPTIONS}
+            selected={prefs.nutritionLabels.length === 0 ? ['none'] : prefs.nutritionLabels}
+            color="#6A1B9A"
+            onToggle={toggleNutrition}
+          />
         </PrefSection>
 
         {/* Diet */}
         <PrefSection emoji="🌿" title="Diet" subtitle="Your dietary lifestyle preferences" color="#2D9B5A">
-          <ToggleChips options={DIET_OPTIONS} selected={prefs.dietLabels} color="#2D9B5A" onToggle={toggleDiet} />
+          <ToggleChips
+            options={DIET_OPTIONS}
+            selected={prefs.dietLabels.length === 0 ? ['none'] : prefs.dietLabels}
+            color="#2D9B5A"
+            onToggle={toggleDiet}
+          />
         </PrefSection>
 
         {/* Allergies */}
         <PrefSection emoji="⚠️" title="Allergies" subtitle="Ingredients and foods you avoid" color="#E85454">
-          <ToggleChips options={ALLERGY_OPTIONS} selected={selectedAllergies} color="#E85454" onToggle={toggleAllergy} />
+          <ToggleChips
+            options={ALLERGY_OPTIONS}
+            selected={selectedAllergies.length === 0 ? ['none'] : selectedAllergies}
+            color="#E85454"
+            onToggle={toggleAllergy}
+          />
+        </PrefSection>
+
+        {/* Daily goals */}
+        <PrefSection emoji="🎯" title="Daily nutrition goals" subtitle="Used for progress bars on your diet tracker" color="#E65100">
+          {([
+            { key: 'calories', label: 'Calories', unit: 'kcal', color: '#fa8c16', max: 6000 },
+            { key: 'protein_g', label: 'Protein', unit: 'g', color: '#2D9B5A', max: 500 },
+            { key: 'fat_g', label: 'Fat', unit: 'g', color: '#f759ab', max: 500 },
+            { key: 'carb_g', label: 'Carbs', unit: 'g', color: '#52c41a', max: 500 },
+          ] as { key: keyof DailyGoals; label: string; unit: string; color: string; max: number }[]).map(({ key, label, unit, color, max }) => (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text strong style={{ color, fontSize: 14 }}>{label}</Text>
+              <InputNumber
+                min={0} max={max} value={goals[key]}
+                onChange={(v) => setGoals((g) => ({ ...g, [key]: v ?? 0 }))}
+                style={{ width: 130 }}
+                addonAfter={unit}
+              />
+            </div>
+          ))}
+          <Button size="small" type="text" style={{ color: '#AAB4B4', padding: 0, marginTop: 4 }}
+            onClick={() => setGoals(DEFAULT_GOALS)}>
+            Reset to defaults
+          </Button>
         </PrefSection>
 
         {/* Save button */}
@@ -227,6 +309,20 @@ export default function ProfilePage() {
         >
           Save preferences
         </Button>
+
+        {/* Data */}
+        <div style={{ borderTop: '1px solid #F0E8E0', paddingTop: 24, marginBottom: 24 }}>
+          <Text style={{ fontSize: 11, color: '#AAB4B4', textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600, display: 'block', marginBottom: 12 }}>
+            Your data
+          </Text>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={() => setExportOpen(true)}
+            style={{ borderRadius: 8 }}
+          >
+            Export diet history
+          </Button>
+        </div>
 
         {/* Danger zone */}
         <div style={{ borderTop: '1px solid #F0E8E0', paddingTop: 24 }}>
@@ -244,6 +340,33 @@ export default function ProfilePage() {
           </Button>
         </div>
       </div>
+
+      <Modal
+        title="Export diet history"
+        open={exportOpen}
+        onCancel={() => setExportOpen(false)}
+        onOk={handleExport}
+        okText="Download CSV"
+        confirmLoading={exporting}
+        okButtonProps={{ style: { background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR } }}
+      >
+        <div style={{ padding: '16px 0' }}>
+          <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+            Select the date range to export:
+          </Text>
+          <DatePicker.RangePicker
+            value={exportRange}
+            onChange={(v) => { if (v?.[0] && v?.[1]) setExportRange([v[0], v[1]]) }}
+            disabledDate={(d) => d.isAfter(dayjs(), 'day')}
+            presets={[
+              { label: 'Last 7 days',   value: [dayjs().subtract(7, 'day'),   dayjs()] },
+              { label: 'Last 30 days',  value: [dayjs().subtract(30, 'day'),  dayjs()] },
+              { label: 'Last 3 months', value: [dayjs().subtract(3, 'month'), dayjs()] },
+            ]}
+            style={{ width: '100%' }}
+          />
+        </div>
+      </Modal>
     </div>
   )
 }

@@ -88,3 +88,13 @@ backend/analysis-ik.zip
 backend/crawler/hk/foodpanda_state.json
 backend/crawler/hk/debug_*
 backend/crawler/hk/test_pipeline_output.json
+
+# ── Local experiments / scratch ──────────────────────────────────────────
+backend-bj/
+backend/crawler/bj/experiment/
+backend/crawler/hk/experiment/
+backend/crawler/actions/
+
+# ── Migration data export (transfer manually, never commit) ───────────────────
+export/
+backend/crawler/bj-archive/

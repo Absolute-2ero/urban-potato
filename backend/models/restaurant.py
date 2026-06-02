@@ -61,8 +61,11 @@ class Facets(BaseModel):
 
 
 class SearchParams(BaseModel):
+    city: str = "hongkong"              # which city's data + search logic to use
     q: str = ""
     diet_labels: List[str] = []
+    cuisine_types: List[str] = []       # BJ: cuisine type filter
+    allergen_free_required: List[str] = []  # BJ: exclude restaurants with these allergens
     price_levels: List[int] = []
     cuisine_types: List[str] = []       # 菜系/餐厅类型过滤（中文，如"火锅"）
     allergen_free_required: List[str] = []  # 必须不含的过敏原（如 peanut/shellfish）
@@ -73,6 +76,13 @@ class SearchParams(BaseModel):
     sort_mode: str = "default"
     offset: int = 0
     limit: int = 20
+    min_rating: Optional[float] = None
+    # HK: dish-level nutritional filters
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    min_calories: Optional[int] = None
+    max_calories: Optional[int] = None
+    min_protein_g: Optional[float] = None
 
 
 class QueryParsed(BaseModel):
@@ -88,6 +98,8 @@ class SearchResponse(BaseModel):
     facets: Facets
     spell_suggestion: Optional[str] = None
     detected_diet_labels: List[str] = []
+    detected_cuisine_type: Optional[str] = None
+    landmark_name: Optional[str] = None
     query_tokens: List[str] = []
     sort_mode: str = "default"
     offset: int = 0

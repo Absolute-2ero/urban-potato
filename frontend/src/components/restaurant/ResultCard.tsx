@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Card, Rate, Space, Tag, Typography } from 'antd'
 import {
   EnvironmentOutlined,
@@ -7,7 +8,8 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { AllergenWarning } from '@/components/common/AllergenWarning'
 import { DietBadgeGroup } from '@/components/common/DietBadge'
-import { PRICE_LEVEL_META } from '@/constants'
+import { getPriceLevelMeta } from '@/constants'
+import { useSearchStore } from '@/stores/searchStore'
 import type { DietLabel, Restaurant } from '@/types'
 
 const { Text, Title } = Typography
@@ -25,6 +27,9 @@ function formatDistance(m?: number): string {
 
 export function ResultCard({ restaurant: r, onDietClick }: Props) {
   const navigate = useNavigate()
+  const { city } = useSearchStore()
+  const priceLevelMeta = getPriceLevelMeta(city)
+  const [imgError, setImgError] = useState(false)
 
   const handleClick = () => {
     navigate(`/restaurants/${r.restaurant_id}`)
@@ -42,23 +47,27 @@ export function ResultCard({ restaurant: r, onDietClick }: Props) {
 
       <div style={{ display: 'flex', gap: 16 }}>
         {/* 封面图 */}
-        {r.images?.[0] && (
+        {r.images?.[0] && !imgError ? (
           <img
             src={r.images[0]}
             alt={r.name}
-            style={{
-              width: 100, height: 80, objectFit: 'cover',
-              borderRadius: 8, flexShrink: 0,
-            }}
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+            style={{ width: 100, height: 80, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
+            onError={() => setImgError(true)}
           />
-        )}
+        ) : r.images?.[0] ? (
+          <div style={{
+            width: 100, height: 80, borderRadius: 8, flexShrink: 0,
+            background: '#F0EAE0', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontSize: 24 }}>🍽️</span>
+          </div>
+        ) : null}
 
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* 标题行 */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Title level={5} style={{ margin: 0, lineHeight: 1.3 }} ellipsis>
-              {r.name}
+              {r.name_en || r.name}
             </Title>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 8 }}>
               {r.rating && (
@@ -79,7 +88,7 @@ export function ResultCard({ restaurant: r, onDietClick }: Props) {
             )}
             {r.price_level && (
               <Tag color="geekblue" style={{ fontSize: 11, borderRadius: 6 }}>
-                {PRICE_LEVEL_META[r.price_level]?.icon}
+                {priceLevelMeta[r.price_level]?.icon}
               </Tag>
             )}
             {r._distance_m !== undefined && (

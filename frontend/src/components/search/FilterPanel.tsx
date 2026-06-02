@@ -1,5 +1,6 @@
 import { Checkbox, Collapse, Select, Slider, Typography } from 'antd'
-import { ALL_DIET_LABELS, DIET_LABEL_META, PRICE_LEVEL_META, SORT_MODES } from '@/constants'
+import { ALL_DIET_LABELS, DIET_LABEL_META, getPriceLevelMeta, SORT_MODES } from '@/constants'
+import { useSearchStore } from '@/stores/searchStore'
 import { DietBadge } from '@/components/common/DietBadge'
 import type { DietLabel } from '@/types'
 
@@ -27,6 +28,8 @@ export function FilterPanel({
   onPriceChange,
   onSortChange,
 }: Props) {
+  const { city } = useSearchStore()
+  const priceLevelMeta = getPriceLevelMeta(city)
   const toggleDiet = (label: DietLabel) => {
     const next = dietLabels.includes(label)
       ? dietLabels.filter((l) => l !== label)
@@ -98,7 +101,7 @@ export function FilterPanel({
             children: (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {[1, 2, 3, 4].map((level) => {
-                  const meta = PRICE_LEVEL_META[level]
+                  const meta = priceLevelMeta[level]
                   const count = facets?.price_level[String(level)]
                   const active = priceLevels.includes(level)
                   return (
