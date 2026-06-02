@@ -3,10 +3,12 @@ from __future__ import annotations
 from typing import List, Optional, Tuple
 
 from fastapi import APIRouter, Query, Request
+from pydantic import BaseModel
 
 from models.restaurant import SearchParams, SearchResponse
 from services import search_service
 from services import diet_service
+from services.query_llm_parser import parse_query as _llm_parse
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
@@ -61,6 +63,32 @@ async def search(
         user_allergens=user_allergens,
         user_geo=user_geo,
     )
+
+
+class ParsedQueryResponse(BaseModel):
+    q: str
+    location: Optional[str] = None
+    radius_km: Optional[float] = None
+    cuisine_types: List[str] = []
+    diet_labels: List[str] = []
+    allergen_free_required: List[str] = []
+    price_levels: List[int] = []
+    min_rating: Optional[float] = None
+    sort_mode: str = "default"
+    has_extracted_params: bool = False
+
+
+@router.get("/parse", response_model=ParsedQueryResponse)
+async def parse_query_endpoint(
+    q: str = Query(..., min_length=1, max_length=500, description="自然语言搜索词"),
+) -> ParsedQueryResponse:
+    """用 Kimi 把自然语言 query 解析为结构化搜索参数。"""
+    result = await _llm_parse(q)
+    if result is None:
+        return ParsedQueryResponse(q=q)
+    d = result.to_dict()
+    d["has_extracted_params"] = result.has_extracted_params()
+    return ParsedQueryResponse(**d)
 
 
 @router.get("/autocomplete")

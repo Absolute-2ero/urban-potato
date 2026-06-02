@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
-import { AutoComplete, Button, Input, Space } from 'antd'
-import { SearchOutlined } from '@ant-design/icons'
+import { AutoComplete, Button, Input } from 'antd'
+import { LoadingOutlined, SearchOutlined } from '@ant-design/icons'
 import { autocomplete } from '@/api/search'
 import { PRIMARY_COLOR } from '@/constants'
 
@@ -9,9 +9,10 @@ interface Props {
   onChange: (val: string) => void
   onSearch: (val: string) => void
   placeholder?: string
+  loading?: boolean
 }
 
-export function SearchBar({ value, onChange, onSearch, placeholder }: Props) {
+export function SearchBar({ value, onChange, onSearch, placeholder, loading }: Props) {
   const [options, setOptions] = useState<{ value: string }[]>([])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -46,10 +47,11 @@ export function SearchBar({ value, onChange, onSearch, placeholder }: Props) {
         enterButton={
           <Button
             type="primary"
-            icon={<SearchOutlined />}
+            icon={loading ? <LoadingOutlined /> : <SearchOutlined />}
+            loading={loading}
             style={{ backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }}
           >
-            搜索
+            {loading ? '解析中' : '搜索'}
           </Button>
         }
         onSearch={onSearch}

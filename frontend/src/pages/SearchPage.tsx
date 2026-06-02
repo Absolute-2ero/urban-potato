@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Button, Empty, Pagination, Select, Spin, Tooltip, Typography } from 'antd'
-import { AimOutlined, EnvironmentOutlined, ReloadOutlined, RocketOutlined } from '@ant-design/icons'
+import { Alert, Button, Empty, Pagination, Select, Spin, Tag, Tooltip, Typography } from 'antd'
+import { AimOutlined, EnvironmentOutlined, LoadingOutlined, ReloadOutlined, RocketOutlined } from '@ant-design/icons'
 import { PRIMARY_COLOR } from '@/constants'
 import { SearchBar } from '@/components/search/SearchBar'
 import { FilterBar, FilterState, EMPTY_FILTERS } from '@/components/search/FilterBar'
@@ -11,8 +11,9 @@ import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { addSearchRecord } from '@/utils/history'
 import { fetchCities } from '@/api/cities'
+import { parseQuery } from '@/api/search'
 import type { City } from '@/api/cities'
-import type { DietLabel, Restaurant } from '@/types'
+import type { DietLabel, ParsedQuery, Restaurant } from '@/types'
 
 const { Text } = Typography
 const CRAWL_REFRESH_DELAY = 10_000
@@ -42,6 +43,8 @@ export default function SearchPage() {
   const [countdown, setCountdown] = useState<number | null>(null)
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const lastRecordedRef = useRef('')
+  const [parsing, setParsing] = useState(false)
+  const [parsedInfo, setParsedInfo] = useState<ParsedQuery | null>(null)
 
   const [urlParams] = useSearchParams()
 
@@ -216,6 +219,70 @@ export default function SearchPage() {
     push({ offset: 0 })
   }
 
+  // 智能搜索：query 超过 5 个字时尝试 LLM 解析，提取结构化参数
+  const handleSmartSearch = async (rawQuery: string) => {
+    const trimmed = rawQuery.trim()
+    if (!trimmed) return
+
+    // 短 query 直接搜索，不走 LLM
+    if (trimmed.length <= 5) {
+      setParsedInfo(null)
+      push({ q: trimmed, offset: 0 })
+      return
+    }
+
+    setParsing(true)
+    setParsedInfo(null)
+
+    let parsed: ParsedQuery | null = null
+    try {
+      parsed = await parseQuery(trimmed)
+    } catch {
+      // 解析失败，降级为普通搜索
+    }
+    setParsing(false)
+
+    if (!parsed || !parsed.has_extracted_params) {
+      push({ q: trimmed, offset: 0 })
+      return
+    }
+
+    setParsedInfo(parsed)
+
+    // 更新 local filter 状态
+    const nextLocalFilters = {
+      ...localFilters,
+      cuisineTypes: parsed.cuisine_types,
+      maxDistanceKm: parsed.radius_km,
+      minRating: parsed.min_rating ?? null,
+      allergyRestrictions: parsed.allergen_free_required.map((a) => `${a}-free`),
+    }
+    setLocalFilters(nextLocalFilters)
+    setRadiusKm(parsed.radius_km)
+
+    // 一次性触发包含所有解析参数的搜索
+    doSearch({
+      q: parsed.q || trimmed,
+      diet_labels: parsed.diet_labels.length ? parsed.diet_labels : undefined,
+      price_levels: parsed.price_levels.length ? parsed.price_levels : undefined,
+      sort_mode: parsed.sort_mode,
+      offset: 0,
+      ...(parsed.cuisine_types.length ? { cuisine_types: parsed.cuisine_types } : {}),
+      ...(parsed.min_rating != null ? { min_rating: parsed.min_rating } : {}),
+      ...(parsed.radius_km != null ? { radius_km: parsed.radius_km } : {}),
+      ...(parsed.allergen_free_required.length ? { allergen_free_required: parsed.allergen_free_required } : {}),
+    })
+
+    // 更新 URL（供分享/书签，会再触发一次 doSearch，但参数相同）
+    push({
+      q: parsed.q || trimmed,
+      diet: parsed.diet_labels as DietLabel[],
+      price: parsed.price_levels,
+      sort: parsed.sort_mode,
+      offset: 0,
+    })
+  }
+
   // Rerank by matching dish count when filters are active
   const rankedResults =
     dietLabels.length > 0 || q
@@ -277,8 +344,9 @@ export default function SearchPage() {
           <div style={{ marginBottom: 10 }}>
             <SearchBar
               value={q}
-              onChange={(val) => push({ q: val })}
-              onSearch={(val) => push({ q: val, offset: 0 })}
+              onChange={(val) => { push({ q: val }); setParsedInfo(null) }}
+              onSearch={handleSmartSearch}
+              loading={parsing}
             />
           </div>
           {/* 6 filter groups (no location) */}
@@ -297,26 +365,58 @@ export default function SearchPage() {
       </div>
 
       {/* Alerts */}
-      {(spellSuggestion || detectedDietLabels.length > 0 || crawlTriggered) && (
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '12px 24px 0' }}>
-          {spellSuggestion && (
-            <Alert type="info" showIcon closable
-              message={<span>Did you mean: <a onClick={() => push({ q: spellSuggestion, offset: 0 })}><strong>{spellSuggestion}</strong></a>?</span>}
-              style={{ marginBottom: 8 }} />
-          )}
-          {detectedDietLabels.length > 0 && (
-            <Alert type="success" showIcon closable
-              message={`Detected dietary preferences: ${detectedDietLabels.join(', ')}`}
-              style={{ marginBottom: 8 }} />
-          )}
-          {crawlTriggered && (
-            <Alert type="warning" showIcon icon={<RocketOutlined />} closable
-              message={<span>Fetching more results from the web{countdown !== null ? `, refreshing in ${countdown}s…` : ''}</span>}
-              action={<Button size="small" icon={<ReloadOutlined />} onClick={() => doSearch()}>Refresh</Button>}
-              style={{ marginBottom: 8 }} />
-          )}
-        </div>
-      )}
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '12px 24px 0' }}>
+        {/* LLM 解析结果 banner */}
+        {parsing && (
+          <Alert
+            type="info"
+            icon={<LoadingOutlined />}
+            showIcon
+            message="正在理解你的搜索意图…"
+            style={{ marginBottom: 8 }}
+          />
+        )}
+        {!parsing && parsedInfo?.has_extracted_params && (
+          <Alert
+            type="success"
+            showIcon
+            closable
+            onClose={() => setParsedInfo(null)}
+            style={{ marginBottom: 8 }}
+            message={
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ color: '#555', marginRight: 4 }}>已理解：</span>
+                {parsedInfo.q && <Tag color="blue">"{parsedInfo.q}"</Tag>}
+                {parsedInfo.location && <Tag icon={<EnvironmentOutlined />} color="purple">{parsedInfo.location}</Tag>}
+                {parsedInfo.radius_km != null && <Tag color="cyan">{parsedInfo.radius_km < 1 ? `${parsedInfo.radius_km * 1000}m` : `${parsedInfo.radius_km}km`} 内</Tag>}
+                {parsedInfo.cuisine_types.map((c) => <Tag key={c} color="orange">{c}</Tag>)}
+                {parsedInfo.diet_labels.map((d) => <Tag key={d} color="green">{d}</Tag>)}
+                {parsedInfo.allergen_free_required.map((a) => <Tag key={a} color="red">无{a}</Tag>)}
+                {parsedInfo.price_levels.length > 0 && <Tag color="gold">{'¥'.repeat(Math.min(...parsedInfo.price_levels))}</Tag>}
+                {parsedInfo.min_rating != null && <Tag color="volcano">⭐ ≥{parsedInfo.min_rating}</Tag>}
+                {parsedInfo.sort_mode === 'distance' && <Tag>按距离</Tag>}
+                {parsedInfo.sort_mode === 'rating' && <Tag>按评分</Tag>}
+              </span>
+            }
+          />
+        )}
+        {spellSuggestion && (
+          <Alert type="info" showIcon closable
+            message={<span>Did you mean: <a onClick={() => push({ q: spellSuggestion, offset: 0 })}><strong>{spellSuggestion}</strong></a>?</span>}
+            style={{ marginBottom: 8 }} />
+        )}
+        {detectedDietLabels.length > 0 && (
+          <Alert type="success" showIcon closable
+            message={`Detected dietary preferences: ${detectedDietLabels.join(', ')}`}
+            style={{ marginBottom: 8 }} />
+        )}
+        {crawlTriggered && (
+          <Alert type="warning" showIcon icon={<RocketOutlined />} closable
+            message={<span>Fetching more results from the web{countdown !== null ? `, refreshing in ${countdown}s…` : ''}</span>}
+            action={<Button size="small" icon={<ReloadOutlined />} onClick={() => doSearch()}>Refresh</Button>}
+            style={{ marginBottom: 8 }} />
+        )}
+      </div>
 
       {/* Results */}
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 24px 32px' }}>

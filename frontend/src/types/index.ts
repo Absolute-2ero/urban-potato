@@ -152,6 +152,19 @@ export interface Facets {
   cuisine_type: Record<string, number>
 }
 
+export interface ParsedQuery {
+  q: string
+  location: string | null
+  radius_km: number | null
+  cuisine_types: string[]
+  diet_labels: DietLabel[]
+  allergen_free_required: string[]
+  price_levels: number[]
+  min_rating: number | null
+  sort_mode: string
+  has_extracted_params: boolean
+}
+
 export interface SearchParams {
   q?: string
   diet_labels?: DietLabel[]
