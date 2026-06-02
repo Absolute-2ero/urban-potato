@@ -3,6 +3,7 @@ import { Button, Popover, Select, Slider, Tag, Typography } from 'antd'
 import { DownOutlined, EnvironmentOutlined } from '@ant-design/icons'
 import { DIET_LABEL_META, PRIMARY_COLOR } from '@/constants'
 import { useSearchStore } from '@/stores/searchStore'
+import { currencySymbol } from '@/utils/prefs'
 import { LocationPickerModal } from '@/components/location/LocationPickerModal'
 import { fetchCities } from '@/api/cities'
 import { useLang } from '@/i18n/LanguageContext'
@@ -66,10 +67,10 @@ function calLabel([lo, hi]: [number, number]): string {
   return `${lo}–${hi} kcal`
 }
 
-function priceLabel([lo, hi]: [number, number]): string {
-  if (lo === 0) return `≤HK$${hi}`
-  if (hi >= 200) return `≥HK$${lo}`
-  return `HK$${lo}–${hi}`
+function priceLabel([lo, hi]: [number, number], sym: string): string {
+  if (lo === 0) return `≤${sym}${hi}`
+  if (hi >= 200) return `≥${sym}${lo}`
+  return `${sym}${lo}–${hi}`
 }
 
 // ── Sub-component: group button with Popover ───────────────────────────────
@@ -304,7 +305,8 @@ export function FilterBar({
   onFilterChange,
   hideLocation = false,
 }: FilterBarProps) {
-  const { lat, lng, locationName, setLocation, setLocationName, doSearch } = useSearchStore()
+  const { lat, lng, locationName, setLocation, setLocationName, doSearch, city } = useSearchStore()
+  const sym = currencySymbol(city)
   const { t, lang } = useLang()
   const [locModalOpen, setLocModalOpen] = useState(false)
 
@@ -419,7 +421,7 @@ export function FilterBar({
       </Text>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <div style={{ position: 'relative' as const, flex: 1 }}>
-          <span style={{ position: 'absolute' as const, left: 8, top: '50%', transform: 'translateY(-50%)', color: '#6B7A7A', fontSize: 11 }}>HK$</span>
+          <span style={{ position: 'absolute' as const, left: 8, top: '50%', transform: 'translateY(-50%)', color: '#6B7A7A', fontSize: 11 }}>{sym}</span>
           <input
             type="number"
             min={0}
@@ -440,7 +442,7 @@ export function FilterBar({
         </div>
         <Text type="secondary" style={{ fontSize: 13 }}>–</Text>
         <div style={{ position: 'relative' as const, flex: 1 }}>
-          <span style={{ position: 'absolute' as const, left: 8, top: '50%', transform: 'translateY(-50%)', color: '#6B7A7A', fontSize: 11 }}>HK$</span>
+          <span style={{ position: 'absolute' as const, left: 8, top: '50%', transform: 'translateY(-50%)', color: '#6B7A7A', fontSize: 11 }}>{sym}</span>
           <input
             type="number"
             min={0}
@@ -470,7 +472,7 @@ export function FilterBar({
               background: '#fff', fontSize: 12, cursor: 'pointer', outline: 'none', color: '#6B7A7A',
             }}
           >
-            ≤HK${hi}
+            ≤{sym}{hi}
           </button>
         ))}
         {filters.priceRange && (
@@ -803,7 +805,7 @@ export function FilterBar({
         />
         <GroupBtn emoji="📍" label={t.filter_distance} activeCount={distanceCount} isOpen={openGroup === 'distance'} onToggle={toggle('distance')} content={distanceContent} disabled={lat === null} />
         <GroupBtn emoji="⭐" label={t.filter_rating} activeCount={ratingCount} isOpen={openGroup === 'rating'} onToggle={toggle('rating')} content={ratingContent} />
-        <GroupBtn emoji="HK$" label={t.filter_price} activeCount={priceCount} isOpen={openGroup === 'price'} onToggle={toggle('price')} content={priceContent} />
+        <GroupBtn emoji={sym} label={t.filter_price} activeCount={priceCount} isOpen={openGroup === 'price'} onToggle={toggle('price')} content={priceContent} />
       </div>
 
       {/* Row 2: Health, Diet, Allergies */}
@@ -874,7 +876,7 @@ export function FilterBar({
           )}
           {/* Price (blue) */}
           {filters.priceRange && (
-            <ActiveChip label={`${priceLabel(filters.priceRange)}`} color="#1565C0" bg="#E3F2FD"
+            <ActiveChip label={`${priceLabel(filters.priceRange, sym)}`} color="#1565C0" bg="#E3F2FD"
               onRemove={() => onFilterChange({ priceRange: null })} />
           )}
           <Button

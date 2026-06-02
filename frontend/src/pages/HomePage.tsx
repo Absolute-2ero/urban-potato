@@ -8,7 +8,7 @@ import { LocationPickerModal, reverseGeocode } from '@/components/location/Locat
 import { fetchCities } from '@/api/cities'
 import { useSearchStore } from '@/stores/searchStore'
 import { useAuthStore } from '@/stores/authStore'
-import { loadPrefs, prefsToDietLabels } from '@/utils/prefs'
+import { loadPrefs, prefsToDietLabels, hasPrefs } from '@/utils/prefs'
 import { PRIMARY_COLOR } from '@/constants'
 import { useLang } from '@/i18n/LanguageContext'
 import type { City } from '@/api/cities'
@@ -38,7 +38,7 @@ interface _VegParticle { id: number; emoji: string; x: number; y: number; vx: st
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const { lat, lng, locationName, setLocation, setLocationName } = useSearchStore()
+  const { lat, lng, locationName, setLocation, setLocationName, setCity, city: storeCity } = useSearchStore()
   const { t } = useLang()
   const { user } = useAuthStore()
   const [q, setQ] = useState('')
@@ -70,12 +70,16 @@ export default function HomePage() {
   const [prefsSet, setPrefsSet] = useState(false)
   const [locModalOpen, setLocModalOpen] = useState(false)
   const [cities, setCities] = useState<City[]>([])
-  const [selectedCity, setSelectedCity] = useState<string | null>(null)
+  const [selectedCity, setSelectedCity] = useState<string | null>(storeCity || null)
 
   useEffect(() => {
     fetchCities().then((list) => {
       setCities(list)
-      if (list.length > 0) setSelectedCity(list[0].id)
+      if (list.length === 0) return
+      const activeId = storeCity || list[0].id
+      const active = list.find((c) => c.id === activeId) ?? list[0]
+      setSelectedCity(active.id)
+      setCity(active.id)
     }).catch(() => {})
   }, [])
 
@@ -83,6 +87,7 @@ export default function HomePage() {
     const city = cities.find((c) => c.id === id)
     if (!city) return
     setSelectedCity(id)
+    setCity(id)
     setLocation(city.center.lat, city.center.lng)
     setLocationName(city.label)
   }
@@ -96,7 +101,7 @@ export default function HomePage() {
     if (!user) { setPrefsSet(false); return }
     const prefs = loadPrefs(user.id)
     const defaultLabels = prefsToDietLabels(prefs) as DietLabel[]
-    setPrefsSet(defaultLabels.length > 0)
+    setPrefsSet(hasPrefs(user.id))
     if (defaultLabels.length > 0) {
       setFilters((prev) => ({ ...prev, dietLabels: defaultLabels }))
     }
@@ -126,6 +131,7 @@ export default function HomePage() {
 
   const goSearch = (query: string) => {
     const params = new URLSearchParams()
+    if (selectedCity) params.set('city', selectedCity)
     if (query) params.set('q', query)
     filters.dietLabels.forEach((d) => params.append('diet', d))
     filters.priceLevels.forEach((p) => params.append('price', String(p)))

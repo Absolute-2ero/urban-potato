@@ -82,12 +82,29 @@ class RankingService:
         user_allergens: List[str],
         user_geo: Optional[Tuple[float, float]],
         sort_mode: str = "default",
+        query_text: str = "",
     ) -> List[Dict[str, Any]]:
         weights = self.get_weights(sort_mode)
+
+        q_lower = query_text.strip().lower()
 
         for hit in hits:
             src = hit.get("_source", {})
             text_score = hit.get("_score") or 0.0
+
+            # Boost restaurants whose name matches the query.
+            # Uses the original query string (not tokens) so punctuation like
+            # apostrophes doesn't break exact-match detection.
+            name_bonus = 0.0
+            if q_lower:
+                name    = (src.get("name")    or "").lower().strip()
+                name_en = (src.get("name_en") or "").lower().strip()
+                if q_lower == name or q_lower == name_en:
+                    name_bonus = 2.0          # exact match — ranks above everything
+                elif name.startswith(q_lower) or name_en.startswith(q_lower):
+                    name_bonus = 0.6          # prefix match — very strong boost
+                elif q_lower in name or q_lower in name_en:
+                    name_bonus = 0.3          # substring match
 
             diet_score = self.calc_diet_score(
                 src.get("diet_labels", []),
@@ -107,6 +124,7 @@ class RankingService:
                 + weights["diet_score"]    * (diet_score + 2.0) / 4.0   # 映射 [-2,2]→[0,1]
                 + weights["rating_score"]  * rating_score
                 + weights["distance_score"]* distance_score
+                + name_bonus
             )
 
             # 附加距离（米）

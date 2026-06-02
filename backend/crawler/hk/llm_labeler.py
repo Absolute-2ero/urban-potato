@@ -34,7 +34,7 @@ from config import cfg
 
 logger = logging.getLogger(__name__)
 
-_BATCH_SIZE  = 20       # 每次 API 调用处理的菜品数
+_BATCH_SIZE  = 30       # 每次 API 调用处理的菜品数
 _RATE_DELAY  = 4.0     # 批次间等待秒数（Gemini 免费层 15 RPM）
 
 _VALID_DIET_LABELS = {

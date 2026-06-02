@@ -5,7 +5,9 @@ import { useNavigate } from 'react-router-dom'
 import { AllergenWarning } from '@/components/common/AllergenWarning'
 import { AddLogModal } from '@/components/diet/AddLogModal'
 import { useAuthStore } from '@/stores/authStore'
-import { PRICE_LEVEL_META } from '@/constants'
+import { getPriceLevelMeta } from '@/constants'
+import { useSearchStore } from '@/stores/searchStore'
+import { currencySymbol } from '@/utils/prefs'
 import type { DietLabel, MenuItem, Restaurant } from '@/types'
 
 const { Text, Title } = Typography
@@ -51,8 +53,12 @@ function DishPlaceholder() {
 export function RestaurantGroupCard({ restaurant: r, activeDietLabels = [], query = '', onDietClick }: Props) {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const { city } = useSearchStore()
+  const priceLevelMeta = getPriceLevelMeta(city)
+  const sym = currencySymbol(city)
   const [showAll, setShowAll] = useState(false)
   const [logItem, setLogItem] = useState<MenuItem | null>(null)
+  const [imgError, setImgError] = useState(false)
 
   const handleLogClick = (e: React.MouseEvent, item: MenuItem) => {
     e.stopPropagation()
@@ -94,27 +100,23 @@ export function RestaurantGroupCard({ restaurant: r, activeDietLabels = [], quer
 
         <div style={{ display: 'flex', gap: 12 }}>
           {/* Restaurant thumbnail or placeholder */}
-          {r.images?.[0] ? (
+          {r.images?.[0] && !imgError ? (
             <img
               src={r.images[0]}
               alt={r.name}
               style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
-              onError={(e) => {
-                const el = e.currentTarget
-                el.style.display = 'none'
-                const ph = el.nextElementSibling as HTMLElement
-                if (ph) ph.style.display = 'flex'
-              }}
+              onError={() => setImgError(true)}
             />
-          ) : null}
-          <div style={{
-            width: 56, height: 56, borderRadius: 8, flexShrink: 0,
-            background: '#F0EAE0', display: r.images?.[0] ? 'none' : 'flex',
-            alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 1,
-          }}>
-            <span style={{ fontSize: 22 }}>🍽️</span>
-            <span style={{ fontSize: 8, color: '#C0BDB8' }}>No photo</span>
-          </div>
+          ) : (
+            <div style={{
+              width: 56, height: 56, borderRadius: 8, flexShrink: 0,
+              background: '#F0EAE0', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 1,
+            }}>
+              <span style={{ fontSize: 22 }}>🍽️</span>
+              <span style={{ fontSize: 8, color: '#C0BDB8' }}>No photo</span>
+            </div>
+          )}
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -147,7 +149,7 @@ export function RestaurantGroupCard({ restaurant: r, activeDietLabels = [], quer
               )}
               {r.price_level ? (
                 <Tag color="geekblue" style={{ fontSize: 11, borderRadius: 6, margin: 0 }}>
-                  {PRICE_LEVEL_META[r.price_level]?.icon}
+                  {priceLevelMeta[r.price_level]?.icon}
                 </Tag>
               ) : null}
             </Space>
@@ -217,7 +219,7 @@ export function RestaurantGroupCard({ restaurant: r, activeDietLabels = [], quer
                 <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                   {item.price !== undefined && (
                     <Text style={{ fontSize: 13, color: '#1E2A2A', fontWeight: 500 }}>
-                      HK${item.price}
+                      {sym}{item.price}
                     </Text>
                   )}
                   <Button
@@ -245,8 +247,8 @@ export function RestaurantGroupCard({ restaurant: r, activeDietLabels = [], quer
               }}
             >
               {showAll
-                ? <span><UpOutlined style={{ fontSize: 10 }} /> Show fewer</span>
-                : <span><DownOutlined style={{ fontSize: 10 }} /> {matchedItems.length - MAX_VISIBLE} more matches</span>
+                ? <><UpOutlined style={{ fontSize: 10 }} />{' Show fewer'}</>
+                : <><DownOutlined style={{ fontSize: 10 }} />{` ${matchedItems.length - MAX_VISIBLE} more matches`}</>
               }
             </button>
           )}

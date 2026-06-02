@@ -146,6 +146,7 @@ export interface Facets {
 }
 
 export interface SearchParams {
+  city?: string
   q?: string
   diet_labels?: DietLabel[]
   price_levels?: number[]

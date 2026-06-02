@@ -9,12 +9,12 @@ from ir.spell_checker import check_query
 from ir.synonyms import DietSynonymDict
 from models.restaurant import Facets, SearchParams, SearchResponse
 from services.ranking_service import RankingService
+from services.search import bj_search, hk_search
 
 logger = logging.getLogger(__name__)
 
 _INDEX = "restaurants"
 
-# 模块级单例（由 main.py lifespan 初始化）
 _synonyms: Optional[DietSynonymDict] = None
 _parser: Optional[QueryParser] = None
 _ranker: Optional[RankingService] = None
@@ -28,181 +28,15 @@ def init_search_components() -> None:
     logger.info("Search components initialized")
 
 
-# ── ES 查询构建 ───────────────────────────────────────────────────────────────
-
-def _build_es_query(
-    tokens: List[str],
-    diet_labels: List[str],
-    price_levels: Optional[List[int]],
-    geo: Optional[Tuple[float, float]],
-    geo_radius_km: float,
-    from_: int,
-    size: int,
-    sort_mode: str = "default",
-    min_rating: Optional[float] = None,
-    min_price: Optional[float] = None,
-    max_price: Optional[float] = None,
-    min_calories: Optional[int] = None,
-    max_calories: Optional[int] = None,
-    min_protein_g: Optional[float] = None,
-) -> Dict[str, Any]:
-    filter_clauses: List[Dict] = []
-    query_text = " ".join(tokens)
-
-    # ── Build the nested dish query (text + diet labels combined) ────────────
-    # This drives both dish-level matching and inner_hits retrieval.
-    nested_dish_conditions: List[Dict] = []
-    if query_text:
-        nested_dish_conditions.append({
-            "bool": {
-                "should": [
-                    {"match": {"menu_items.name_en": {"query": query_text, "minimum_should_match": "60%"}}},
-                    {"match": {"menu_items.name":    {"query": query_text, "minimum_should_match": "60%"}}},
-                ],
-                "minimum_should_match": 1,
-            }
-        })
-    if diet_labels:
-        nested_dish_conditions.append({"terms": {"menu_items.diet_labels": diet_labels}})
-
-    nested_inner_hits: Dict[str, Any] = {
-        "size": 20,
-        "_source": True,
-        "sort": [{"menu_items.price": {"order": "asc", "missing": "_last"}}],
-    }
-
-    nested_dish_clause: Optional[Dict] = None
-    if nested_dish_conditions:
-        nested_dish_clause = {
-            "nested": {
-                "path": "menu_items",
-                "query": (
-                    {"bool": {"must": nested_dish_conditions}}
-                    if len(nested_dish_conditions) > 1
-                    else nested_dish_conditions[0]
-                ),
-                "inner_hits": nested_inner_hits,
-                # score_mode=sum: restaurants with more matching dishes score higher
-                "score_mode": "sum",
-            }
-        }
-
-    # ── Build top-level query ────────────────────────────────────────────────
-    if query_text:
-        # Restaurant name match (high boost) OR dish match — at least one must fire
-        restaurant_name_clause: Dict = {
-            "multi_match": {
-                "query": query_text,
-                "fields": ["name^6", "name_en^5", "cuisine_type^2", "address"],
-                "type": "best_fields",
-                "minimum_should_match": "60%",
-            }
-        }
-        should_clauses = [restaurant_name_clause]
-        if nested_dish_clause:
-            should_clauses.append(nested_dish_clause)
-        top_query: Dict = {"bool": {"should": should_clauses, "minimum_should_match": 1}}
-
-    elif nested_dish_clause:
-        # Only diet labels set — must match dishes with those labels
-        top_query = nested_dish_clause
-
-    else:
-        top_query = {"match_all": {}}
-
-    # ── Filters (price level, geo, rating, price range, calories) ───────────
-    if price_levels:
-        filter_clauses.append({"terms": {"price_level": price_levels}})
-    if geo:
-        lat, lng = geo
-        filter_clauses.append({
-            "geo_distance": {
-                "distance": f"{geo_radius_km}km",
-                "geo": {"lat": lat, "lon": lng},
-            }
-        })
-    if min_rating is not None:
-        filter_clauses.append({"range": {"rating": {"gte": min_rating}}})
-    if min_price is not None or max_price is not None:
-        price_range: Dict = {}
-        if min_price is not None:
-            price_range["gte"] = min_price
-        if max_price is not None:
-            price_range["lte"] = max_price
-        filter_clauses.append({
-            "nested": {
-                "path": "menu_items",
-                "query": {"range": {"menu_items.price": price_range}},
-            }
-        })
-    if min_calories is not None or max_calories is not None:
-        cal_range: Dict = {}
-        if min_calories is not None:
-            cal_range["gte"] = min_calories
-        if max_calories is not None:
-            cal_range["lte"] = max_calories
-        filter_clauses.append({
-            "nested": {
-                "path": "menu_items",
-                "query": {"range": {"menu_items.calories": cal_range}},
-            }
-        })
-    if min_protein_g is not None:
-        filter_clauses.append({
-            "nested": {
-                "path": "menu_items",
-                "query": {"range": {"menu_items.protein_g": {"gte": min_protein_g}}},
-            }
-        })
-
-    final_query = (
-        {"bool": {"must": top_query, "filter": filter_clauses}}
-        if filter_clauses
-        else top_query
-    )
-
-    # ── Sort ─────────────────────────────────────────────────────────────────
-    if sort_mode == "price_asc":
-        sort: List = [{"price_level": {"order": "asc", "missing": "_last"}}, "_score"]
-    elif sort_mode == "rating_first":
-        sort = [{"rating": {"order": "desc", "missing": "_last"}}, "_score"]
-    elif sort_mode == "distance_first" and geo:
-        sort = [{"_geo_distance": {"geo": {"lat": geo[0], "lon": geo[1]}, "order": "asc"}}, "_score"]
-    else:
-        sort = ["_score"]
-
-    # ── Aggregations ─────────────────────────────────────────────────────────
-    aggs = {
-        "diet_labels": {"terms": {"field": "diet_labels", "size": 20}},
-        "price_level": {"terms": {"field": "price_level", "size": 5}},
-        "cuisine_type": {"terms": {"field": "cuisine_type.keyword", "size": 20}},
-    }
-
-    return {
-        "from": from_,
-        "size": size,
-        "query": final_query,
-        "sort": sort,
-        "aggs": aggs,
-        "_source": True,
-    }
-
-
 def _parse_facets(aggs: Dict[str, Any]) -> Facets:
     def _buckets(key: str) -> Dict[str, int]:
-        return {
-            b["key"]: b["doc_count"]
-            for b in aggs.get(key, {}).get("buckets", [])
-        }
-
+        return {b["key"]: b["doc_count"] for b in aggs.get(key, {}).get("buckets", [])}
     return Facets(
         diet_labels=_buckets("diet_labels"),
         price_level={str(k): v for k, v in _buckets("price_level").items()},
         cuisine_type=_buckets("cuisine_type"),
     )
 
-
-# ── 主搜索入口 ────────────────────────────────────────────────────────────────
 
 async def search(
     params: SearchParams,
@@ -214,7 +48,7 @@ async def search(
 
     user_allergens = user_allergens or []
 
-    # ── 1. 拼写纠错 ───────────────────────────────────────────────────────────
+    # ── 1. Spell correction ──────────────────────────────────────────────────
     spell_suggestion: Optional[str] = None
     query_text = params.q or ""
     if query_text:
@@ -222,49 +56,68 @@ async def search(
         if corrected and corrected.lower() != query_text.lower():
             spell_suggestion = corrected
 
-    # ── 2. 查询解析 + 同义词扩展 + 约束提取 ─────────────────────────────────
+    # ── 2. Query parsing + synonym expansion ────────────────────────────────
     parsed = _parser.parse(query_text, sort_mode=params.sort_mode)
-    search_tokens = parsed.free_text_tokens
     detected_diet_labels = parsed.detected_diet_labels
+    active_diet_labels = list(dict.fromkeys((params.diet_labels or []) + detected_diet_labels))
 
-    # Explicit params win; fall back to query-extracted constraints.
-    c = parsed.extracted_constraints
-    min_calories  = params.min_calories  if params.min_calories  is not None else (c.min_calories  if c else None)
-    max_calories  = params.max_calories  if params.max_calories  is not None else (c.max_calories  if c else None)
-    min_protein_g = params.min_protein_g if params.min_protein_g is not None else (c.min_protein_g if c else None)
-    max_price     = params.max_price     if params.max_price     is not None else (c.max_price_rmb if c else None)
-
-    # 用户显式指定的 diet_labels 优先，再补充从查询检测到的
-    active_diet_labels = list(
-        dict.fromkeys((params.diet_labels or []) + detected_diet_labels)
-    )
-
-    # ── 3. 地理位置：GPS > landmark fallback ──────────────────────────────────
+    # ── 3. Geo ───────────────────────────────────────────────────────────────
     geo: Optional[Tuple[float, float]] = None
     if params.lat is not None and params.lng is not None:
         geo = (params.lat, params.lng)
-    elif parsed.landmark_geo is not None:
-        geo = parsed.landmark_geo
-        logger.debug("Using landmark geo for '%s': %s", parsed.landmark_name, geo)
 
-    # ── 4. 构建并执行 ES 查询 ─────────────────────────────────────────────────
-    es_body = _build_es_query(
-        tokens=search_tokens,
-        diet_labels=active_diet_labels,
-        price_levels=params.price_levels,
-        geo=geo,
-        geo_radius_km=params.radius_km or 5.0,
-        from_=params.offset,
-        size=params.limit,
-        sort_mode=params.sort_mode,
-        min_rating=params.min_rating,
-        min_price=params.min_price,
-        max_price=max_price,
-        min_calories=min_calories,
-        max_calories=max_calories,
-        min_protein_g=min_protein_g,
-    )
+    # ── 4. Build ES query — city-specific strategy ───────────────────────────
+    city = (params.city or "hongkong").lower()
 
+    if city == "beijing":
+        search_tokens = parsed.expanded_tokens if hasattr(parsed, "expanded_tokens") else parsed.free_text_tokens
+        es_body = bj_search.build_query(
+            tokens=search_tokens,
+            diet_labels=active_diet_labels,
+            cuisine_types=params.cuisine_types or [],
+            allergen_free_required=params.allergen_free_required or [],
+            price_levels=params.price_levels,
+            geo=geo,
+            geo_radius_km=params.radius_km or 5.0,
+            from_=params.offset,
+            size=params.limit,
+            sort_mode=params.sort_mode,
+            min_rating=params.min_rating,
+        )
+        flatten_hit = bj_search.flatten_hit
+    else:
+        # HK (default) — dish-level with nutritional constraints
+        search_tokens = parsed.free_text_tokens
+        c = getattr(parsed, "extracted_constraints", None)
+        min_calories  = params.min_calories  if params.min_calories  is not None else (c.min_calories  if c else None)
+        max_calories  = params.max_calories  if params.max_calories  is not None else (c.max_calories  if c else None)
+        min_protein_g = params.min_protein_g if params.min_protein_g is not None else (c.min_protein_g if c else None)
+        max_price     = params.max_price     if params.max_price     is not None else (c.max_price_rmb if c else None)
+
+        # Landmark geo fallback (HK only)
+        if geo is None and getattr(parsed, "landmark_geo", None) is not None:
+            geo = parsed.landmark_geo
+            logger.debug("Using landmark geo for '%s': %s", parsed.landmark_name, geo)
+
+        es_body = hk_search.build_query(
+            tokens=search_tokens,
+            diet_labels=active_diet_labels,
+            price_levels=params.price_levels,
+            geo=geo,
+            geo_radius_km=params.radius_km or 5.0,
+            from_=params.offset,
+            size=params.limit,
+            sort_mode=params.sort_mode,
+            min_rating=params.min_rating,
+            min_price=params.min_price,
+            max_price=max_price,
+            min_calories=min_calories,
+            max_calories=max_calories,
+            min_protein_g=min_protein_g,
+        )
+        flatten_hit = hk_search.flatten_hit
+
+    # ── 5. Execute ES query ───────────────────────────────────────────────────
     es = get_es()
     try:
         resp = await es.search(index=_INDEX, body=es_body)
@@ -276,80 +129,19 @@ async def search(
     total = resp["hits"]["total"]["value"]
     aggs = resp.get("aggregations", {})
 
-    # ── 5. 实时爬虫触发（ES 命中不足时后台补充）──────────────────────────────
-    # 仅在第一页且有搜索词时触发
-    if params.offset == 0 and query_text:
-        try:
-            from crawler.realtime_crawler import maybe_trigger
-            lat = params.lat
-            lng = params.lng
-            await maybe_trigger(
-                query=query_text,
-                es_hit_count=total,
-                lat=lat,
-                lng=lng,
-            )
-        except Exception as exc:
-            logger.warning("Realtime crawl trigger failed (non-fatal): %s", exc)
-
-    # ── 6. 重排序 ─────────────────────────────────────────────────────────────
+    # ── 6. Rerank ─────────────────────────────────────────────────────────────
     reranked = _ranker.rerank(
         hits=hits,
         query_diet_labels=active_diet_labels,
         user_allergens=user_allergens,
         user_geo=user_geo or geo,
         sort_mode=params.sort_mode,
+        query_text=query_text,
     )
 
-    # ── 7. 组装响应 ───────────────────────────────────────────────────────────
+    # ── 8. Flatten and respond ────────────────────────────────────────────────
+    flattened = [flatten_hit(h) for h in reranked]
     facets = _parse_facets(aggs)
-
-    # Flatten ES hit structure: merge _source with scoring fields so the
-    # frontend can treat each hit directly as a Restaurant object.
-    def _flatten(hit: Dict[str, Any]) -> Dict[str, Any]:
-        src = dict(hit.get("_source", {}))
-        for field in ("diet_labels", "allergens", "allergen_free", "images"):
-            val = src.get(field)
-            if isinstance(val, str):
-                src[field] = [v for v in val.split() if v] if val.strip() else []
-            elif not isinstance(val, list):
-                src[field] = []
-        menu = src.get("menu_items")
-        if not isinstance(menu, list):
-            src["menu_items"] = []
-        # Derive price_level if not set
-        if not src.get("price_level"):
-            import re as _re
-            pr = src.get("price_range", "")
-            if pr:
-                nums = [int(n) for n in _re.findall(r'\d+', pr)]
-                if nums:
-                    avg = sum(nums) / len(nums)
-                    src["price_level"] = 1 if avg < 100 else 2 if avg < 200 else 3 if avg < 400 else 4
-            if not src.get("price_level"):
-                prices = [i["price"] for i in src.get("menu_items", []) if isinstance(i, dict) and i.get("price")]
-                if prices:
-                    avg = sum(prices) / len(prices)
-                    src["price_level"] = 1 if avg < 50 else 2 if avg < 100 else 3 if avg < 200 else 4
-        # Extract matched dishes from ES inner_hits
-        matched_dishes: List[Dict] = []
-        inner = hit.get("inner_hits", {})
-        if "menu_items" in inner:
-            for ih in inner["menu_items"]["hits"]["hits"]:
-                dish = dict(ih.get("_source", {}))
-                dl = dish.get("diet_labels")
-                if isinstance(dl, str):
-                    dish["diet_labels"] = [v for v in dl.split() if v] if dl.strip() else []
-                elif not isinstance(dl, list):
-                    dish["diet_labels"] = []
-                matched_dishes.append(dish)
-        src["matched_dishes"] = matched_dishes
-        src["_final_score"] = hit.get("_final_score")
-        src["_distance_m"] = hit.get("_distance_m")
-        src["_allergen_warning"] = hit.get("_allergen_warning") or []
-        return src
-
-    flattened = [_flatten(h) for h in reranked]
 
     return SearchResponse(
         total=total,
@@ -357,8 +149,8 @@ async def search(
         facets=facets,
         spell_suggestion=spell_suggestion,
         detected_diet_labels=detected_diet_labels,
-        detected_cuisine_type=parsed.detected_cuisine_type,
-        landmark_name=parsed.landmark_name,
+        detected_cuisine_type=getattr(parsed, "detected_cuisine_type", None),
+        landmark_name=getattr(parsed, "landmark_name", None),
         query_tokens=search_tokens,
         sort_mode=params.sort_mode,
         offset=params.offset,
@@ -367,26 +159,11 @@ async def search(
     )
 
 
-# ── 自动补全 ──────────────────────────────────────────────────────────────────
-
 async def autocomplete(prefix: str, size: int = 8, city: Optional[str] = None) -> List[str]:
-    """Prefix search on restaurant names, optionally filtered by city."""
     es = get_es()
-    # Map city id → restaurant_id prefix patterns
-    _CITY_PREFIXES: Dict[str, List[str]] = {
-        "hongkong": ["openrice_", "foodpanda_"],
-        "beijing":  ["gaode_"],
-    }
     filter_clauses: List[Dict] = []
-    if city and city in _CITY_PREFIXES:
-        filter_clauses.append({
-            "bool": {
-                "should": [
-                    {"prefix": {"restaurant_id": p}} for p in _CITY_PREFIXES[city]
-                ],
-                "minimum_should_match": 1,
-            }
-        })
+    if city:
+        filter_clauses.append({"term": {"city": city.lower()}})
     try:
         body: Dict[str, Any] = {
             "size": size,

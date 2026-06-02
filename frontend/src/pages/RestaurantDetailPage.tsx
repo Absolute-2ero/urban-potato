@@ -15,7 +15,8 @@ import { useAuthStore } from '@/stores/authStore'
 import { addRestaurantView } from '@/utils/history'
 import { AllergenWarning } from '@/components/common/AllergenWarning'
 import { DietBadgeGroup } from '@/components/common/DietBadge'
-import { PRICE_LEVEL_META } from '@/constants'
+import { getPriceLevelMeta } from '@/constants'
+import { currencySymbol } from '@/utils/prefs'
 import { useLang } from '@/i18n/LanguageContext'
 // DietBadgeGroup kept for restaurant-level label display above
 import type { Restaurant } from '@/types'
@@ -28,7 +29,9 @@ export default function RestaurantDetailPage() {
   const location = useLocation()
   const { user } = useAuthStore()
   const { t } = useLang()
-  const { q: searchQ, dietLabels: searchDietLabels } = useSearchStore()
+  const { q: searchQ, dietLabels: searchDietLabels, city } = useSearchStore()
+  const priceLevelMeta = getPriceLevelMeta(city)
+  const sym = currencySymbol(city)
   const noHighlight = !!(location.state as any)?.noHighlight
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null)
   const [loading, setLoading] = useState(true)
@@ -139,7 +142,7 @@ export default function RestaurantDetailPage() {
             {/* Price level + cuisine row */}
             <Space>
               {r.price_level ? (
-                <Tag color="geekblue">{PRICE_LEVEL_META[r.price_level]?.label}</Tag>
+                <Tag color="geekblue">{priceLevelMeta[r.price_level]?.label}</Tag>
               ) : null}
               {r.cuisine_type && <Tag>{r.cuisine_type}</Tag>}
             </Space>
@@ -160,11 +163,18 @@ export default function RestaurantDetailPage() {
               </Space>
             )}
 
-            {r.description && (
-              <Paragraph type="secondary" style={{ fontSize: 13, margin: 0 }}>
-                {r.description}
-              </Paragraph>
-            )}
+            {(() => {
+              const desc = r.description?.trim()
+              const tags = ((r as any).tags as string[] | undefined)
+                ?.filter((t) => t !== '餐饮服务' && t !== '餐饮')
+                .slice(0, 3)
+              const fallback = !desc && tags?.length ? tags.join(' · ') : null
+              return (desc || fallback) ? (
+                <Paragraph type="secondary" style={{ fontSize: 13, margin: 0 }}>
+                  {desc || fallback}
+                </Paragraph>
+              ) : null
+            })()}
 
             {/* Save button */}
             <Button
@@ -228,7 +238,7 @@ export default function RestaurantDetailPage() {
                       </div>
                       {item.price && (
                         <Text style={{ fontSize: 13, fontWeight: 600, color: '#1E2A2A', flexShrink: 0 }}>
-                          HK${item.price}
+                          {sym}{item.price}
                         </Text>
                       )}
                     </div>

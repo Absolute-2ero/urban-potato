@@ -27,6 +27,13 @@ class Config(BaseSettings):
 
     # 高德地图
     gaode_api_key: str = ""
+    gaode_security_key: str = ""
+
+    # Kimi（月之暗面）
+    moonshot_api_key: str = ""
+
+    # 智谱 GLM
+    zhipu_api_key: str = ""
 
     # Session
     session_secret: str = "dev-secret-change-in-production-please"

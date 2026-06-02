@@ -37,7 +37,7 @@ TEST_RESTAURANTS = [
 
 async def main() -> None:
     from config import cfg
-    from crawler.bj.llm_labeler import _call_llm, translate_restaurant_name
+    from crawler.hk.llm_labeler import _call_llm, translate_restaurant_name
 
     print(f"Model  : {cfg.llm_model}")
     print(f"BaseURL: {cfg.llm_base_url}")

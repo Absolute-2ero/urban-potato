@@ -82,6 +82,7 @@ _DEFAULT_MAPPING: Dict[str, Any] = {
 
             # ── 元数据 ────────────────────────────────────────────────────────
             "source":         {"type": "keyword"},
+            "city":           {"type": "keyword"},   # "hongkong" | "beijing" | …
 
             # ── 菜单（nested，每道菜可单独匹配/评分）─────────────────────────
             "menu_items": {

@@ -9,28 +9,31 @@ import { PRIMARY_COLOR } from '@/constants'
 const { Title, Text } = Typography
 
 const NUTRITION_OPTIONS = [
-  { value: 'low_fat', label: 'Low-fat', emoji: '💧' },
-  { value: 'low_sugar', label: 'Low-sugar', emoji: '🍬' },
-  { value: 'low_sodium', label: 'Low-sodium', emoji: '🧂' },
+  { value: 'none',         label: 'None',        emoji: '' },
+  { value: 'low_fat',      label: 'Low-fat',      emoji: '💧' },
+  { value: 'low_sugar',    label: 'Low-sugar',    emoji: '🍬' },
+  { value: 'low_sodium',   label: 'Low-sodium',   emoji: '🧂' },
   { value: 'high_protein', label: 'High-protein', emoji: '💪' },
-  { value: 'no_added_oil', label: 'Low oil', emoji: '🫙' },
+  { value: 'no_added_oil', label: 'Low oil',      emoji: '🫙' },
 ]
 
 const DIET_OPTIONS = [
+  { value: 'none',       label: 'None',       emoji: '' },
   { value: 'vegetarian', label: 'Vegetarian', emoji: '🥗' },
-  { value: 'vegan', label: 'Vegan', emoji: '🌿' },
-  { value: 'halal', label: 'Halal', emoji: '☪️' },
-  { value: 'kosher', label: 'Kosher', emoji: '✡️' },
-  { value: 'keto', label: 'Keto', emoji: '🥑' },
+  { value: 'vegan',      label: 'Vegan',      emoji: '🌿' },
+  { value: 'halal',      label: 'Halal',      emoji: '☪️' },
+  { value: 'kosher',     label: 'Kosher',     emoji: '✡️' },
+  { value: 'keto',       label: 'Keto',       emoji: '🥑' },
 ]
 
 const ALLERGY_OPTIONS = [
-  { value: 'peanut-free', label: 'Peanut-free', emoji: '🥜', isDietLabel: false },
-  { value: 'dairy-free', label: 'Dairy-free', emoji: '🥛', isDietLabel: true },
-  { value: 'gluten-free', label: 'Gluten-free', emoji: '🌾', isDietLabel: true },
+  { value: 'none',         label: 'None',         emoji: '', isDietLabel: false },
+  { value: 'peanut-free',  label: 'Peanut-free',  emoji: '🥜', isDietLabel: false },
+  { value: 'dairy-free',   label: 'Dairy-free',   emoji: '🥛', isDietLabel: true },
+  { value: 'gluten-free',  label: 'Gluten-free',  emoji: '🌾', isDietLabel: true },
   { value: 'seafood-free', label: 'Seafood-free', emoji: '🦐', isDietLabel: false },
-  { value: 'soy-free', label: 'Soy-free', emoji: '🫘', isDietLabel: false },
-  { value: 'no_spicy', label: 'No spicy', emoji: '🌶️', isDietLabel: false },
+  { value: 'soy-free',     label: 'Soy-free',     emoji: '🫘', isDietLabel: false },
+  { value: 'no_spicy',     label: 'No spicy',     emoji: '🌶️', isDietLabel: false },
 ]
 
 const GOAL_PRESETS = [
@@ -61,7 +64,7 @@ function ToggleChips({
             fontSize: 14, fontWeight: active ? 600 : 400,
             cursor: 'pointer', outline: 'none', transition: 'all 0.15s',
           }}>
-            <span>{opt.emoji}</span>
+            {opt.emoji && <span>{opt.emoji}</span>}
             <span>{opt.label}</span>
             {active && <CheckOutlined style={{ fontSize: 11 }} />}
           </button>
@@ -208,7 +211,12 @@ export default function OnboardingPage() {
             <Text type="secondary" style={{ display: 'block', marginBottom: 20, fontSize: 14 }}>
               Filter search results by nutrition focus
             </Text>
-            <ToggleChips options={NUTRITION_OPTIONS} selected={nutritionLabels} color="#6A1B9A" onToggle={toggler(setNutritionLabels)} />
+            <ToggleChips
+              options={NUTRITION_OPTIONS}
+              selected={nutritionLabels.length === 0 ? ['none'] : nutritionLabels}
+              color="#6A1B9A"
+              onToggle={(v) => v === 'none' ? setNutritionLabels([]) : toggler(setNutritionLabels)(v)}
+            />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Button type="text" onClick={() => setStep(0)}>← Back</Button>
               <Button type="primary" onClick={() => setStep(2)} style={{ background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }}>
@@ -225,7 +233,12 @@ export default function OnboardingPage() {
             <Text type="secondary" style={{ display: 'block', marginBottom: 20, fontSize: 14 }}>
               Select all dietary lifestyles that apply
             </Text>
-            <ToggleChips options={DIET_OPTIONS} selected={dietLabels} color="#2D9B5A" onToggle={toggler(setDietLabels)} />
+            <ToggleChips
+              options={DIET_OPTIONS}
+              selected={dietLabels.length === 0 ? ['none'] : dietLabels}
+              color="#2D9B5A"
+              onToggle={(v) => v === 'none' ? setDietLabels([]) : toggler(setDietLabels)(v)}
+            />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Button type="text" onClick={() => setStep(1)}>← Back</Button>
               <Button type="primary" onClick={() => setStep(3)} style={{ background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR }}>
@@ -242,7 +255,12 @@ export default function OnboardingPage() {
             <Text type="secondary" style={{ display: 'block', marginBottom: 20, fontSize: 14 }}>
               We'll flag warnings when these ingredients appear
             </Text>
-            <ToggleChips options={ALLERGY_OPTIONS} selected={selectedAllergies} color="#E85454" onToggle={toggler(setSelectedAllergies)} />
+            <ToggleChips
+              options={ALLERGY_OPTIONS}
+              selected={selectedAllergies.length === 0 ? ['none'] : selectedAllergies}
+              color="#E85454"
+              onToggle={(v) => v === 'none' ? setSelectedAllergies([]) : toggler(setSelectedAllergies)(v)}
+            />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Button type="text" onClick={() => setStep(2)}>← Back</Button>
               <Button type="primary" icon={<CheckOutlined />} onClick={finish}

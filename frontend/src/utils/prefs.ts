@@ -39,6 +39,10 @@ export function clearPrefs(userId: string | number): void {
   localStorage.removeItem(prefsKey(userId))
 }
 
+export function hasPrefs(userId: string | number): boolean {
+  return localStorage.getItem(prefsKey(userId)) !== null
+}
+
 // Map old stored values to current diet label keys
 const NUTRITION_MAP: Record<string, string> = {
   low_fat:      'low-fat',
@@ -72,4 +76,8 @@ export function loadGoals(userId: string | number): DailyGoals {
 
 export function saveGoals(userId: string | number, goals: DailyGoals): void {
   localStorage.setItem(goalsKey(userId), JSON.stringify(goals))
+}
+
+export function currencySymbol(city: string): string {
+  return city === 'beijing' ? '¥' : 'HK$'
 }

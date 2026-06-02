@@ -152,7 +152,7 @@ def nlp_label(doc: dict) -> dict:
 
 async def llm_label(doc: dict) -> dict:
     logger.info("=== STEP 5: LLM labeling (bilingual) ===")
-    from crawler.beijing.llm_labeler import label_menu_items_batch
+    from crawler.hk.llm_labeler import label_menu_items_batch
     from config import cfg
     if not cfg.llm_api_key:
         logger.warning("LLM_API_KEY not set — skipping (set in .env to enable)")

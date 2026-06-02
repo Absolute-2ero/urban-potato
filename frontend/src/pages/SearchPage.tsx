@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Alert, Button, Empty, Pagination, Select, Spin, Typography } from 'antd'
-import { EnvironmentOutlined, ReloadOutlined, RocketOutlined } from '@ant-design/icons'
+import { Alert, Empty, Pagination, Select, Spin, Typography } from 'antd'
+import { EnvironmentOutlined } from '@ant-design/icons'
 import { LocationPickerModal } from '@/components/location/LocationPickerModal'
 import { fetchCities } from '@/api/cities'
 import type { City } from '@/api/cities'
@@ -17,7 +17,6 @@ import { useLang } from '@/i18n/LanguageContext'
 import type { DietLabel, Restaurant } from '@/types'
 
 const { Text } = Typography
-const CRAWL_REFRESH_DELAY = 10_000
 
 function countMatchingDishes(r: Restaurant, dietLabels: DietLabel[], q: string): number {
   if (!r.menu_items?.length) return 0
@@ -29,22 +28,24 @@ function countMatchingDishes(r: Restaurant, dietLabels: DietLabel[], q: string):
 }
 
 function LocationRow() {
-  const { lat, lng, locationName, setLocation, setLocationName, doSearch } = useSearchStore()
+  const { lat, lng, locationName, setLocation, setLocationName, setCity, doSearch, city: storeCity } = useSearchStore()
   const { t } = useLang()
   const [cities, setCities] = useState<City[]>([])
-  const [selectedCity, setSelectedCity] = useState<string | null>(null)
+  const [selectedCity, setSelectedCity] = useState<string | null>(storeCity || null)
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
     fetchCities().then((list) => {
       setCities(list)
-      if (list.length > 0 && !selectedCity) {
-        const first = list[0]
-        setSelectedCity(first.id)
-        if (lat === null) {
-          setLocation(first.center.lat, first.center.lng)
-          setLocationName(first.label)
-        }
+      if (list.length === 0) return
+      // Restore from store if already set, otherwise default to first city
+      const activeId = storeCity || list[0].id
+      const active = list.find((c) => c.id === activeId) ?? list[0]
+      setSelectedCity(active.id)
+      setCity(active.id)
+      if (lat === null) {
+        setLocation(active.center.lat, active.center.lng)
+        setLocationName(active.label)
       }
     }).catch(() => {})
   }, [])
@@ -53,6 +54,7 @@ function LocationRow() {
     const city = cities.find((c) => c.id === id)
     if (!city) return
     setSelectedCity(id)
+    setCity(id)
     setLocation(city.center.lat, city.center.lng)
     setLocationName(city.label)
     doSearch()
@@ -107,14 +109,12 @@ export default function SearchPage() {
   }, [q, dietLabels, priceLevels, sortMode])
   const {
     results, total, facets, loading, error,
-    spellSuggestion, detectedDietLabels, crawlTriggered,
+    spellSuggestion, detectedDietLabels,
     doSearch, setLocation, setLocalFilters: setStoreFilters, setSortMode,
   } = useSearchStore()
   const { user } = useAuthStore()
   const { t } = useLang()
 
-  const [countdown, setCountdown] = useState<number | null>(null)
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const lastRecordedRef = useRef('')
 
   // Local-only filter state (not URL-synced; backend extension needed)
@@ -139,22 +139,6 @@ export default function SearchPage() {
     }
   }, [user?.id])
 
-
-  useEffect(() => {
-    if (!crawlTriggered) return
-    setCountdown(Math.round(CRAWL_REFRESH_DELAY / 1000))
-    countdownRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(countdownRef.current!)
-          doSearch()
-          return null
-        }
-        return prev - 1
-      })
-    }, 1000)
-    return () => { if (countdownRef.current) clearInterval(countdownRef.current) }
-  }, [crawlTriggered])
 
   // Record search history when a search completes with a query or diet filters
   useEffect(() => {
@@ -243,7 +227,7 @@ export default function SearchPage() {
       </div>
 
       {/* Alerts */}
-      {(spellSuggestion || detectedDietLabels.length > 0 || crawlTriggered) && (
+      {(spellSuggestion || detectedDietLabels.length > 0) && (
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '12px 24px 0' }}>
           {spellSuggestion && (
             <Alert type="info" showIcon closable
@@ -255,12 +239,7 @@ export default function SearchPage() {
               message={`${t.search_detected_diet} ${detectedDietLabels.join(', ')}`}
               style={{ marginBottom: 8 }} />
           )}
-          {crawlTriggered && (
-            <Alert type="warning" showIcon icon={<RocketOutlined />} closable
-              message={<span>{t.search_fetching_more}{countdown !== null ? `, refreshing in ${countdown}s…` : ''}</span>}
-              action={<Button size="small" icon={<ReloadOutlined />} onClick={() => doSearch()}>{t.search_refresh}</Button>}
-              style={{ marginBottom: 8 }} />
-          )}
+
         </div>
       )}
 
@@ -278,7 +257,7 @@ export default function SearchPage() {
           {rankedResults.length === 0 && !loading ? (
             <Empty
               style={{ marginTop: 48 }}
-              description={crawlTriggered ? t.search_crawling : t.search_no_results}
+              description={t.search_no_results}
             />
           ) : (
             rankedResults.map((r) => (

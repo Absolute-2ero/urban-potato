@@ -6,15 +6,39 @@ import { getSavedRestaurants, unsaveRestaurant } from '@/api/diet'
 import { getRestaurant } from '@/api/restaurants'
 import { useAuthStore } from '@/stores/authStore'
 import { AllergenWarning } from '@/components/common/AllergenWarning'
-import { PRICE_LEVEL_META, PRIMARY_COLOR } from '@/constants'
+import { getPriceLevelMeta, PRIMARY_COLOR } from '@/constants'
+import { useSearchStore } from '@/stores/searchStore'
 import { useLang } from '@/i18n/LanguageContext'
 import type { Restaurant } from '@/types'
 
 const { Title, Text } = Typography
 
+function RestaurantThumbnail({ src, alt }: { src?: string; alt: string }) {
+  const [error, setError] = useState(false)
+  if (src && !error) {
+    return (
+      <img
+        src={src} alt={alt}
+        style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
+        onError={() => setError(true)}
+      />
+    )
+  }
+  return (
+    <div style={{
+      width: 88, height: 88, borderRadius: 8, flexShrink: 0,
+      background: '#F0EAE0', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <span style={{ fontSize: 28 }}>🍽️</span>
+    </div>
+  )
+}
+
 export default function SavedRestaurantsPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const { city } = useSearchStore()
+  const priceLevelMeta = getPriceLevelMeta(city)
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [loading, setLoading] = useState(true)
   const [unsavingId, setUnsavingId] = useState<string | null>(null)
@@ -154,21 +178,7 @@ export default function SavedRestaurantsPage() {
 
               <div style={{ display: 'flex', gap: 14, padding: 14 }}>
                 {/* Image */}
-                {r.images?.[0] ? (
-                  <img
-                    src={r.images[0]}
-                    alt={r.name}
-                    style={{ width: 88, height: 88, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                  />
-                ) : (
-                  <div style={{
-                    width: 88, height: 88, borderRadius: 8, flexShrink: 0,
-                    background: '#F0EAE0', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <span style={{ fontSize: 28 }}>🍽️</span>
-                  </div>
-                )}
+                <RestaurantThumbnail src={r.images?.[0]} alt={r.name} />
 
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -202,7 +212,7 @@ export default function SavedRestaurantsPage() {
                     {r.cuisine_type && <Tag style={{ fontSize: 11, borderRadius: 6 }}>{r.cuisine_type}</Tag>}
                     {r.price_level ? (
                       <Tag color="geekblue" style={{ fontSize: 11, borderRadius: 6 }}>
-                        {PRICE_LEVEL_META[r.price_level]?.label}
+                        {priceLevelMeta[r.price_level]?.label}
                       </Tag>
                     ) : null}
                   </Space>

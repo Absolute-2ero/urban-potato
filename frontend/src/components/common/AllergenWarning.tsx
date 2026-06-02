@@ -34,7 +34,16 @@ export function AllergenWarning({ allergens }: Props) {
           <strong>{t.allergen_contains}</strong> {names}
         </span>
       }
-      style={{ marginBottom: 8, padding: '4px 12px' }}
+      description={
+        <span style={{
+          fontSize: 12, fontWeight: 600, color: '#7A1A1A',
+          background: '#FFD6D6', borderRadius: 4,
+          padding: '2px 6px', display: 'inline-block', marginTop: 2,
+        }}>
+          ⚠️ AI-estimated only — always confirm allergens with the restaurant before ordering.
+        </span>
+      }
+      style={{ marginBottom: 8, padding: '6px 12px' }}
     />
   )
 }

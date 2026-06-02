@@ -15,7 +15,7 @@ const FEATURES = [
   {
     emoji: '⚠️',
     title: 'Allergen alerts',
-    desc: 'Real-time allergen warnings on every restaurant. Set your allergies once and we\'ll flag them automatically.',
+    desc: 'Real-time allergen warnings on every restaurant. Set your allergies once and we\'ll flag them automatically. Note: allergen data is estimated by AI — always confirm with the restaurant before ordering.',
     bg: '#FFF0F0', accent: '#E85454',
   },
   {
@@ -54,7 +54,7 @@ export default function AboutPage() {
           </Paragraph>
           <Button
             type="primary" size="large"
-            onClick={() => navigate(user ? '/search' : '/login')}
+            onClick={() => navigate(user ? '/' : '/login')}
             style={{ background: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, borderRadius: 999, padding: '0 36px', height: 46, fontSize: 15 }}
           >
             {user ? 'Start searching →' : 'Get started — it\'s free'}

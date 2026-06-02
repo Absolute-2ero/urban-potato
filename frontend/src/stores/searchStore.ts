@@ -4,6 +4,7 @@ import type { DietLabel, Facets, Restaurant, SearchParams } from '@/types'
 
 interface SearchState {
   // 搜索参数（与 URL 同步）
+  city: string
   q: string
   dietLabels: DietLabel[]
   priceLevels: number[]
@@ -27,11 +28,11 @@ interface SearchState {
   facets: Facets | null
   spellSuggestion: string | null
   detectedDietLabels: DietLabel[]
-  crawlTriggered: boolean
   loading: boolean
   error: string | null
 
   // 动作
+  setCity: (city: string) => void
   setQ: (q: string) => void
   setDietLabels: (labels: DietLabel[]) => void
   setPriceLevels: (levels: number[]) => void
@@ -47,6 +48,7 @@ interface SearchState {
 const defaultFacets: Facets = { diet_labels: {}, price_level: {}, cuisine_type: {} }
 
 export const useSearchStore = create<SearchState>((set, get) => ({
+  city: 'hongkong',
   q: '',
   dietLabels: [],
   priceLevels: [],
@@ -68,10 +70,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   facets: null,
   spellSuggestion: null,
   detectedDietLabels: [],
-  crawlTriggered: false,
   loading: false,
   error: null,
 
+  setCity: (city) => set({ city, offset: 0, results: [], total: 0 }),
   setQ: (q) => set({ q }),
   setDietLabels: (dietLabels) => set({ dietLabels, offset: 0 }),
   setPriceLevels: (priceLevels) => set({ priceLevels, offset: 0 }),
@@ -82,9 +84,10 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   setLocalFilters: (f) => set(f as any),
 
   doSearch: async (overrides = {}) => {
-    const { q, dietLabels, priceLevels, sortMode, offset, limit, lat, lng,
+    const { city, q, dietLabels, priceLevels, sortMode, offset, limit, lat, lng,
             radiusKm, minRating, minPrice, maxPrice, minCalories, maxCalories } = get()
     const params: SearchParams = {
+      city,
       q,
       diet_labels: dietLabels.length ? dietLabels : undefined,
       price_levels: priceLevels.length ? priceLevels : undefined,
@@ -108,7 +111,6 @@ export const useSearchStore = create<SearchState>((set, get) => ({
         facets: resp.facets ?? defaultFacets,
         spellSuggestion: resp.spell_suggestion ?? null,
         detectedDietLabels: resp.detected_diet_labels,
-        crawlTriggered: resp.crawl_triggered ?? false,
         loading: false,
       })
     } catch (err: unknown) {
@@ -121,7 +123,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
     set({
       q: '', dietLabels: [], priceLevels: [], sortMode: 'default',
       offset: 0, lat: null, lng: null, results: [], total: 0, facets: null,
-      spellSuggestion: null, detectedDietLabels: [], crawlTriggered: false,
+      spellSuggestion: null, detectedDietLabels: [],
       loading: false, error: null,
     }),
 }))

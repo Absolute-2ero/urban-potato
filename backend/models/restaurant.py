@@ -61,8 +61,11 @@ class Facets(BaseModel):
 
 
 class SearchParams(BaseModel):
+    city: str = "hongkong"              # which city's data + search logic to use
     q: str = ""
     diet_labels: List[str] = []
+    cuisine_types: List[str] = []       # BJ: cuisine type filter
+    allergen_free_required: List[str] = []  # BJ: exclude restaurants with these allergens
     price_levels: List[int] = []
     lat: Optional[float] = None
     lng: Optional[float] = None
@@ -71,6 +74,7 @@ class SearchParams(BaseModel):
     offset: int = 0
     limit: int = 20
     min_rating: Optional[float] = None
+    # HK: dish-level nutritional filters
     min_price: Optional[float] = None
     max_price: Optional[float] = None
     min_calories: Optional[int] = None

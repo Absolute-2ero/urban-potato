@@ -13,28 +13,31 @@ import { PRIMARY_COLOR } from '@/constants'
 const { Title, Text } = Typography
 
 const NUTRITION_OPTIONS = [
-  { value: 'low_fat', label: 'Low-fat', emoji: '💧' },
-  { value: 'low_sugar', label: 'Low-sugar', emoji: '🍬' },
-  { value: 'low_sodium', label: 'Low-sodium', emoji: '🧂' },
+  { value: 'none',         label: 'None',        emoji: '' },
+  { value: 'low_fat',      label: 'Low-fat',      emoji: '💧' },
+  { value: 'low_sugar',    label: 'Low-sugar',    emoji: '🍬' },
+  { value: 'low_sodium',   label: 'Low-sodium',   emoji: '🧂' },
   { value: 'high_protein', label: 'High-protein', emoji: '💪' },
-  { value: 'no_added_oil', label: 'Low oil', emoji: '🫙' },
+  { value: 'no_added_oil', label: 'Low oil',      emoji: '🫙' },
 ]
 
 const DIET_OPTIONS = [
+  { value: 'none',       label: 'None',       emoji: '' },
   { value: 'vegetarian', label: 'Vegetarian', emoji: '🥗' },
-  { value: 'vegan', label: 'Vegan', emoji: '🌿' },
-  { value: 'halal', label: 'Halal', emoji: '☪️' },
-  { value: 'kosher', label: 'Kosher', emoji: '✡️' },
-  { value: 'keto', label: 'Keto', emoji: '🥑' },
+  { value: 'vegan',      label: 'Vegan',      emoji: '🌿' },
+  { value: 'halal',      label: 'Halal',      emoji: '☪️' },
+  { value: 'kosher',     label: 'Kosher',     emoji: '✡️' },
+  { value: 'keto',       label: 'Keto',       emoji: '🥑' },
 ]
 
 const ALLERGY_OPTIONS = [
-  { value: 'peanut-free', label: 'Peanut-free', emoji: '🥜', isDietLabel: false },
-  { value: 'dairy-free', label: 'Dairy-free', emoji: '🥛', isDietLabel: true },
-  { value: 'gluten-free', label: 'Gluten-free', emoji: '🌾', isDietLabel: true },
+  { value: 'none',         label: 'None',         emoji: '', isDietLabel: false },
+  { value: 'peanut-free',  label: 'Peanut-free',  emoji: '🥜', isDietLabel: false },
+  { value: 'dairy-free',   label: 'Dairy-free',   emoji: '🥛', isDietLabel: true },
+  { value: 'gluten-free',  label: 'Gluten-free',  emoji: '🌾', isDietLabel: true },
   { value: 'seafood-free', label: 'Seafood-free', emoji: '🦐', isDietLabel: false },
-  { value: 'soy-free', label: 'Soy-free', emoji: '🫘', isDietLabel: false },
-  { value: 'no_spicy', label: 'No spicy', emoji: '🌶️', isDietLabel: false },
+  { value: 'soy-free',     label: 'Soy-free',     emoji: '🫘', isDietLabel: false },
+  { value: 'no_spicy',     label: 'No spicy',     emoji: '🌶️', isDietLabel: false },
 ]
 
 function ToggleChips({
@@ -66,7 +69,7 @@ function ToggleChips({
               cursor: 'pointer', outline: 'none', transition: 'all 0.15s',
             }}
           >
-            <span>{opt.emoji}</span>
+            {opt.emoji && <span>{opt.emoji}</span>}
             <span>{opt.label}</span>
             {active && <CheckOutlined style={{ fontSize: 10 }} />}
           </button>
@@ -123,20 +126,28 @@ export default function ProfilePage() {
   const toggleNutrition = (v: string) =>
     setPrefs((p) => ({
       ...p,
-      nutritionLabels: p.nutritionLabels.includes(v)
-        ? p.nutritionLabels.filter((x) => x !== v)
-        : [...p.nutritionLabels, v],
+      nutritionLabels: v === 'none'
+        ? []
+        : p.nutritionLabels.includes(v)
+          ? p.nutritionLabels.filter((x) => x !== v)
+          : [...p.nutritionLabels, v],
     }))
 
   const toggleDiet = (v: string) =>
     setPrefs((p) => ({
       ...p,
-      dietLabels: p.dietLabels.includes(v)
-        ? p.dietLabels.filter((x) => x !== v)
-        : [...p.dietLabels, v],
+      dietLabels: v === 'none'
+        ? []
+        : p.dietLabels.includes(v)
+          ? p.dietLabels.filter((x) => x !== v)
+          : [...p.dietLabels, v],
     }))
 
   const toggleAllergy = (v: string) => {
+    if (v === 'none') {
+      setPrefs((p) => ({ ...p, dietLabels: p.dietLabels.filter((x) => !ALLERGY_OPTIONS.some((o) => o.value === x)), allergyRestrictions: [] }))
+      return
+    }
     const opt = ALLERGY_OPTIONS.find((o) => o.value === v)!
     if (opt.isDietLabel) {
       setPrefs((p) => ({
@@ -236,17 +247,32 @@ export default function ProfilePage() {
 
         {/* Health */}
         <PrefSection emoji="🥗" title="Health" subtitle="Nutritional goals applied to every search" color="#6A1B9A">
-          <ToggleChips options={NUTRITION_OPTIONS} selected={prefs.nutritionLabels} color="#6A1B9A" onToggle={toggleNutrition} />
+          <ToggleChips
+            options={NUTRITION_OPTIONS}
+            selected={prefs.nutritionLabels.length === 0 ? ['none'] : prefs.nutritionLabels}
+            color="#6A1B9A"
+            onToggle={toggleNutrition}
+          />
         </PrefSection>
 
         {/* Diet */}
         <PrefSection emoji="🌿" title="Diet" subtitle="Your dietary lifestyle preferences" color="#2D9B5A">
-          <ToggleChips options={DIET_OPTIONS} selected={prefs.dietLabels} color="#2D9B5A" onToggle={toggleDiet} />
+          <ToggleChips
+            options={DIET_OPTIONS}
+            selected={prefs.dietLabels.length === 0 ? ['none'] : prefs.dietLabels}
+            color="#2D9B5A"
+            onToggle={toggleDiet}
+          />
         </PrefSection>
 
         {/* Allergies */}
         <PrefSection emoji="⚠️" title="Allergies" subtitle="Ingredients and foods you avoid" color="#E85454">
-          <ToggleChips options={ALLERGY_OPTIONS} selected={selectedAllergies} color="#E85454" onToggle={toggleAllergy} />
+          <ToggleChips
+            options={ALLERGY_OPTIONS}
+            selected={selectedAllergies.length === 0 ? ['none'] : selectedAllergies}
+            color="#E85454"
+            onToggle={toggleAllergy}
+          />
         </PrefSection>
 
         {/* Daily goals */}

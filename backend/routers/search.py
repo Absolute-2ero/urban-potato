@@ -25,8 +25,11 @@ async def _get_user_context(request: Request) -> tuple:
 @router.get("", response_model=SearchResponse)
 async def search(
     request: Request,
+    city: str = Query("hongkong", description="城市 ID: hongkong | beijing"),
     q: Optional[str] = Query(None, max_length=500, description="搜索关键词"),
     diet_labels: Optional[List[str]] = Query(None, description="饮食标签过滤"),
+    cuisine_types: Optional[List[str]] = Query(None, description="菜系过滤（北京）"),
+    allergen_free_required: Optional[List[str]] = Query(None, description="需排除的过敏原（北京）"),
     price_levels: Optional[List[int]] = Query(None, description="价格档次 1-4"),
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lng: Optional[float] = Query(None, ge=-180, le=180),
@@ -34,10 +37,14 @@ async def search(
     sort_mode: str = Query("default", description="排序模式"),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    min_rating: Optional[float] = Query(None, ge=0, le=5),
 ) -> SearchResponse:
     params = SearchParams(
+        city=city,
         q=q or "",
         diet_labels=diet_labels or [],
+        cuisine_types=cuisine_types or [],
+        allergen_free_required=allergen_free_required or [],
         price_levels=price_levels or [],
         lat=lat,
         lng=lng,
@@ -45,6 +52,7 @@ async def search(
         sort_mode=sort_mode,
         offset=offset,
         limit=limit,
+        min_rating=min_rating,
     )
 
     _uid, user_allergens = await _get_user_context(request)
@@ -66,22 +74,3 @@ async def autocomplete(
     return await search_service.autocomplete(prefix, size=size, city=city)
 
 
-@router.post("/trigger-crawl")
-async def trigger_crawl(
-    request: Request,
-    q: str = Query(..., min_length=1, max_length=200),
-    lat: Optional[float] = Query(None),
-    lng: Optional[float] = Query(None),
-) -> dict:
-    """
-    手动触发实时爬虫（前端可在搜索结果不足时主动调用）。
-    返回 triggered=true 表示已安排爬取（非阻塞）。
-    """
-    from crawler.realtime_crawler import maybe_trigger
-    triggered = await maybe_trigger(
-        query=q,
-        es_hit_count=0,   # 强制触发
-        lat=lat,
-        lng=lng,
-    )
-    return {"triggered": triggered, "message": "爬虫已启动，约 5-10 秒后重新搜索可见新结果" if triggered else "已有爬虫任务在进行中"}
