@@ -183,7 +183,6 @@ export interface SearchParams {
   sort_mode?: string
   offset?: number
   limit?: number
-  min_rating?: number
   min_price?: number
   max_price?: number
   min_calories?: number

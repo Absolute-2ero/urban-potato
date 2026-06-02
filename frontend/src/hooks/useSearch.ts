@@ -11,7 +11,7 @@ export function useSearchSync() {
   const [urlParams, setUrlParams] = useSearchParams()
   const {
     q, dietLabels, priceLevels, sortMode, offset, limit,
-    setQ, setDietLabels, setPriceLevels, setSortMode, setOffset, setRadiusKm,
+    setQ, setDietLabels, setPriceLevels, setSortMode, setOffset, setLocalFilters,
     doSearch,
   } = useSearchStore()
 
@@ -32,7 +32,7 @@ export function useSearchSync() {
     setPriceLevels(urlPrice)
     setSortMode(urlSort)
     setOffset(urlOffset)
-    setRadiusKm(urlRadiusKm)
+    if (urlRadiusKm != null) setLocalFilters({ radiusKm: urlRadiusKm })
 
     // 直接把解析好的值传给 doSearch，不依赖 store 异步更新
     doSearch({

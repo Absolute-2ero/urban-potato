@@ -27,14 +27,12 @@ async def _get_user_context(request: Request) -> tuple:
 @router.get("", response_model=SearchResponse)
 async def search(
     request: Request,
-    city: str = Query("hongkong", description="城市 ID: hongkong | beijing"),
+    city: str = Query("beijing", description="城市 ID: hongkong | beijing"),
     q: Optional[str] = Query(None, max_length=500, description="搜索关键词"),
     diet_labels: Optional[List[str]] = Query(None, description="饮食标签过滤"),
-    cuisine_types: Optional[List[str]] = Query(None, description="菜系过滤（北京）"),
-    allergen_free_required: Optional[List[str]] = Query(None, description="需排除的过敏原（北京）"),
-    price_levels: Optional[List[int]] = Query(None, description="价格档次 1-4"),
     cuisine_types: Optional[List[str]] = Query(None, description="菜系/类型过滤（中文）"),
     allergen_free_required: Optional[List[str]] = Query(None, description="必须不含的过敏原"),
+    price_levels: Optional[List[int]] = Query(None, description="价格档次 1-4"),
     min_rating: Optional[float] = Query(None, ge=0, le=5, description="最低评分"),
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lng: Optional[float] = Query(None, ge=-180, le=180),
@@ -42,7 +40,6 @@ async def search(
     sort_mode: str = Query("default", description="排序模式"),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    min_rating: Optional[float] = Query(None, ge=0, le=5),
 ) -> SearchResponse:
     params = SearchParams(
         city=city,
@@ -51,8 +48,6 @@ async def search(
         cuisine_types=cuisine_types or [],
         allergen_free_required=allergen_free_required or [],
         price_levels=price_levels or [],
-        cuisine_types=cuisine_types or [],
-        allergen_free_required=allergen_free_required or [],
         min_rating=min_rating,
         lat=lat,
         lng=lng,
@@ -60,7 +55,6 @@ async def search(
         sort_mode=sort_mode,
         offset=offset,
         limit=limit,
-        min_rating=min_rating,
     )
 
     _uid, user_allergens = await _get_user_context(request)
