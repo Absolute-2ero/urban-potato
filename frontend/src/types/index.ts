@@ -159,6 +159,8 @@ export interface Facets {
 export interface ParsedQuery {
   q: string
   location: string | null
+  location_lat: number | null
+  location_lng: number | null
   radius_km: number | null
   cuisine_types: string[]
   diet_labels: DietLabel[]
@@ -181,6 +183,7 @@ export interface SearchParams {
   lng?: number
   radius_km?: number
   sort_mode?: string
+  semantic?: boolean
   offset?: number
   limit?: number
   min_price?: number

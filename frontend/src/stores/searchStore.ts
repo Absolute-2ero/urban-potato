@@ -32,7 +32,11 @@ interface SearchState {
   loading: boolean
   error: string | null
 
+  // 搜索模式
+  searchMode: 'smart' | 'semantic'
+
   // 动作
+  setSearchMode: (mode: 'smart' | 'semantic') => void
   setCity: (city: string) => void
   setQ: (q: string) => void
   setDietLabels: (labels: DietLabel[]) => void
@@ -50,6 +54,7 @@ const defaultFacets: Facets = { diet_labels: {}, price_level: {}, cuisine_type: 
 
 export const useSearchStore = create<SearchState>((set, get) => ({
   city: 'beijing',
+  searchMode: (localStorage.getItem('search_mode') as 'smart' | 'semantic') || 'smart',
   q: '',
   dietLabels: [],
   priceLevels: [],
@@ -75,6 +80,7 @@ export const useSearchStore = create<SearchState>((set, get) => ({
   loading: false,
   error: null,
 
+  setSearchMode: (mode) => { localStorage.setItem('search_mode', mode); set({ searchMode: mode }) },
   setCity: (city) => set({ city, offset: 0, results: [], total: 0 }),
   setQ: (q) => set({ q }),
   setDietLabels: (dietLabels) => set({ dietLabels, offset: 0 }),

@@ -83,6 +83,7 @@ class RankingService:
         user_geo: Optional[Tuple[float, float]],
         sort_mode: str = "default",
         query_text: str = "",
+        user_pref_vector: Optional[List[float]] = None,
     ) -> List[Dict[str, Any]]:
         weights = self.get_weights(sort_mode)
 
@@ -116,14 +117,24 @@ class RankingService:
             rating_score = self.calc_rating_score(src.get("rating"))
             distance_score = self.calc_distance_score(src.get("geo"), user_geo)
 
+            # 个性化分数：用户偏好向量 vs 餐厅 embedding 的余弦相似度
+            pref_score = 0.5  # 无偏好数据时给中间值
+            if user_pref_vector:
+                restaurant_emb = src.get("embedding")
+                if restaurant_emb and isinstance(restaurant_emb, list):
+                    from services.personalization_service import cosine_similarity
+                    # 相似度范围 [-1,1]，映射到 [0,1]
+                    pref_score = (cosine_similarity(user_pref_vector, restaurant_emb) + 1.0) / 2.0
+
             # 归一化 text_score（ES BM25 无上界，简单截断到 0-1）
             norm_text = min(text_score / 10.0, 1.0) if text_score else 0.0
 
             hit["_final_score"] = (
-                weights["text_score"]      * norm_text
-                + weights["diet_score"]    * (diet_score + 2.0) / 4.0   # 映射 [-2,2]→[0,1]
-                + weights["rating_score"]  * rating_score
-                + weights["distance_score"]* distance_score
+                weights["text_score"]        * norm_text
+                + weights["diet_score"]      * (diet_score + 2.0) / 4.0
+                + weights["rating_score"]    * rating_score
+                + weights["distance_score"]  * distance_score
+                + weights.get("personalization", 0.05) * pref_score
                 + name_bonus
             )
 

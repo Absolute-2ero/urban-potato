@@ -38,6 +38,7 @@ async def search(
     lng: Optional[float] = Query(None, ge=-180, le=180),
     radius_km: Optional[float] = Query(5.0, ge=0.1, le=50.0),
     sort_mode: str = Query("default", description="排序模式"),
+    semantic: bool = Query(False, description="纯语义搜索模式（kNN only，跳过 BM25 文本匹配）"),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ) -> SearchResponse:
@@ -55,6 +56,7 @@ async def search(
         sort_mode=sort_mode,
         offset=offset,
         limit=limit,
+        semantic=semantic,
     )
 
     _uid, user_allergens = await _get_user_context(request)
@@ -64,12 +66,15 @@ async def search(
         params=params,
         user_allergens=user_allergens,
         user_geo=user_geo,
+        user_id=_uid,
     )
 
 
 class ParsedQueryResponse(BaseModel):
     q: str
     location: Optional[str] = None
+    location_lat: Optional[float] = None
+    location_lng: Optional[float] = None
     radius_km: Optional[float] = None
     cuisine_types: List[str] = []
     diet_labels: List[str] = []
@@ -83,9 +88,10 @@ class ParsedQueryResponse(BaseModel):
 @router.get("/parse", response_model=ParsedQueryResponse)
 async def parse_query_endpoint(
     q: str = Query(..., min_length=1, max_length=500, description="自然语言搜索词"),
+    city: Optional[str] = Query("beijing", description="城市 ID，用于地标坐标参考"),
 ) -> ParsedQueryResponse:
     """用 Kimi 把自然语言 query 解析为结构化搜索参数。"""
-    result = await _llm_parse(q)
+    result = await _llm_parse(q, city=city or "beijing")
     if result is None:
         return ParsedQueryResponse(q=q)
     d = result.to_dict()

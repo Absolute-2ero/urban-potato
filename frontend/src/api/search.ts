@@ -16,7 +16,7 @@ export const triggerCrawl = (q: string, lat?: number, lng?: number) =>
     })
     .then((r) => r.data)
 
-export const parseQuery = (q: string) =>
+export const parseQuery = (q: string, city?: string) =>
   client
-    .get<ParsedQuery>('/api/search/parse', { params: { q } })
+    .get<ParsedQuery>('/api/search/parse', { params: { q, ...(city ? { city } : {}) } })
     .then((r) => r.data)

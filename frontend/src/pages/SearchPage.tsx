@@ -107,7 +107,8 @@ export default function SearchPage() {
   const {
     results, total, facets, loading, error,
     spellSuggestion, detectedDietLabels, crawlTriggered,
-    doSearch, setLocation, setLocalFilters: setStoreFilters, setSortMode,
+    doSearch, setLocation, setLocationName, setLocalFilters: setStoreFilters, setSortMode,
+    city: currentCity, searchMode, setSearchMode,
   } = useSearchStore()
   const { user } = useAuthStore()
   const { t } = useLang()
@@ -142,7 +143,7 @@ export default function SearchPage() {
     if (key === lastRecordedRef.current) return
     lastRecordedRef.current = key
     addSearchRecord(
-      { id: crypto.randomUUID(), query: q, dietLabels, timestamp: Date.now(), resultCount: total },
+      { id: (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)), query: q, dietLabels, timestamp: Date.now(), resultCount: total },
       user?.id,
     )
   }, [loading, q, dietLabels])
@@ -178,11 +179,19 @@ export default function SearchPage() {
     if (Object.keys(storePatch).length > 0) { setStoreFilters(storePatch); doSearch() }
   }
 
-  // 智能搜索：query > 5 字时尝试 LLM 解析
   const handleSmartSearch = async (rawQuery: string) => {
     const trimmed = rawQuery.trim()
     if (!trimmed) return
 
+    // ── Semantic mode: skip LLM, send raw query with semantic=true ───────────
+    if (searchMode === 'semantic') {
+      setParsedInfo(null)
+      doSearch({ q: trimmed, semantic: true, offset: 0 })
+      push({ q: trimmed, offset: 0 })
+      return
+    }
+
+    // ── Smart mode: LLM extraction ───────────────────────────────────────────
     if (trimmed.length <= 5) {
       setParsedInfo(null)
       push({ q: trimmed, offset: 0 })
@@ -193,7 +202,7 @@ export default function SearchPage() {
     setParsedInfo(null)
 
     let parsed: ParsedQuery | null = null
-    try { parsed = await parseQuery(trimmed) } catch { /* fallback */ }
+    try { parsed = await parseQuery(trimmed, currentCity ?? undefined) } catch { /* fallback */ }
     setParsing(false)
 
     if (!parsed || !parsed.has_extracted_params) {
@@ -202,6 +211,11 @@ export default function SearchPage() {
     }
 
     setParsedInfo(parsed)
+
+    if (parsed.location_lat != null && parsed.location_lng != null) {
+      setLocation(parsed.location_lat, parsed.location_lng)
+      if (parsed.location) setLocationName(parsed.location)
+    }
 
     const nextLocalFilters = {
       ...localFilters,
@@ -225,6 +239,9 @@ export default function SearchPage() {
       ...(parsed.min_rating != null ? { min_rating: parsed.min_rating } : {}),
       ...(parsed.radius_km != null ? { radius_km: parsed.radius_km } : {}),
       ...(parsed.allergen_free_required.length ? { allergen_free_required: parsed.allergen_free_required } : {}),
+      ...(parsed.location_lat != null && parsed.location_lng != null
+        ? { lat: parsed.location_lat, lng: parsed.location_lng }
+        : {}),
     })
 
     push({
@@ -266,6 +283,8 @@ export default function SearchPage() {
               onChange={(val) => { push({ q: val }); setParsedInfo(null) }}
               onSearch={handleSmartSearch}
               loading={parsing}
+              searchMode={searchMode}
+              onSearchModeChange={setSearchMode}
             />
           </div>
           <FilterBar filters={filters} onFilterChange={handleFilterChange} hideLocation />
@@ -279,8 +298,17 @@ export default function SearchPage() {
             type="info"
             icon={<LoadingOutlined />}
             showIcon
-            message="正在理解你的搜索意图…"
+            message={searchMode === 'semantic' ? 'Semantic search…' : '正在理解你的搜索意图…'}
             style={{ marginBottom: 8 }}
+          />
+        )}
+        {!parsing && searchMode === 'semantic' && q && (
+          <Alert
+            type="info"
+            showIcon
+            closable
+            style={{ marginBottom: 8 }}
+            message={<span style={{ fontSize: 13 }}>✨ <strong>Semantic</strong> — results ranked by meaning similarity to "{q}"</span>}
           />
         )}
         {!parsing && parsedInfo?.has_extracted_params && (
@@ -294,7 +322,15 @@ export default function SearchPage() {
               <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <span style={{ color: '#555', marginRight: 4 }}>已理解：</span>
                 {parsedInfo.q && <Tag color="blue">"{parsedInfo.q}"</Tag>}
-                {parsedInfo.location && <Tag icon={<EnvironmentOutlined />} color="purple">{parsedInfo.location}</Tag>}
+                {parsedInfo.location && (
+                  <Tag
+                    icon={<EnvironmentOutlined />}
+                    color={parsedInfo.location_lat != null ? 'purple' : 'default'}
+                    title={parsedInfo.location_lat != null ? `${parsedInfo.location_lat.toFixed(4)}, ${parsedInfo.location_lng?.toFixed(4)}` : '位置未能定位'}
+                  >
+                    {parsedInfo.location}{parsedInfo.location_lat != null ? ' 📍' : ' ⚠️'}
+                  </Tag>
+                )}
                 {parsedInfo.radius_km != null && <Tag color="cyan">{parsedInfo.radius_km < 1 ? `${parsedInfo.radius_km * 1000}m` : `${parsedInfo.radius_km}km`} 内</Tag>}
                 {parsedInfo.cuisine_types.map((c) => <Tag key={c} color="orange">{c}</Tag>)}
                 {parsedInfo.diet_labels.map((d) => <Tag key={d} color="green">{d}</Tag>)}

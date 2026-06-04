@@ -1,0 +1,38 @@
+INFO:     Started server process [1498611]
+INFO:     Waiting for application startup.
+2026-06-03 23:12:49,394 [INFO] main: Starting DietSearch backend...
+2026-06-03 23:12:49,394 [INFO] database: SQLite connected: data/food_db.sqlite
+2026-06-03 23:12:49,394 [INFO] db: Food DB already has 72 items, skip seeding
+2026-06-03 23:12:49,429 [INFO] database: PostgreSQL pool created
+2026-06-03 23:12:49,430 [INFO] database: Redis connected
+2026-06-03 23:12:49,433 [INFO] elastic_transport.transport: GET http://localhost:9200/ [status:200 duration:0.002s]
+2026-06-03 23:12:49,433 [INFO] database: Elasticsearch connected: 8.13.4
+2026-06-03 23:12:49,434 [INFO] elastic_transport.transport: HEAD http://localhost:9200/restaurants [status:200 duration:0.001s]
+2026-06-03 23:12:49,434 [INFO] services.index_service: ES index 'restaurants' already exists, skipping creation
+2026-06-03 23:12:49,435 [INFO] services.ranking_service: RankingService loaded 4 sort modes
+2026-06-03 23:12:49,435 [INFO] services.search_service: Search components initialized
+2026-06-03 23:12:49,435 [INFO] main: DietSearch backend started ✓
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+2026-06-03 23:12:55,824 [INFO] middleware.auth_middleware: GET /health 200 0.5ms user=-
+INFO:     127.0.0.1:52252 - "GET /health HTTP/1.1" 200 OK
+Building prefix dict from the default dictionary ...
+2026-06-03 23:12:55,833 [DEBUG] jieba: Building prefix dict from the default dictionary ...
+Loading model from cache /tmp/claude-1000/jieba.cache
+2026-06-03 23:12:55,833 [DEBUG] jieba: Loading model from cache /tmp/claude-1000/jieba.cache
+Loading model cost 0.332 seconds.
+2026-06-03 23:12:56,165 [DEBUG] jieba: Loading model cost 0.332 seconds.
+Prefix dict has been built successfully.
+2026-06-03 23:12:56,166 [DEBUG] jieba: Prefix dict has been built successfully.
+2026-06-03 23:12:56,294 [INFO] httpx: HTTP Request: POST https://open.bigmodel.cn/api/paas/v4/embeddings "HTTP/1.1 200 OK"
+2026-06-03 23:12:56,325 [INFO] elastic_transport.transport: POST http://localhost:9200/restaurants/_search [status:200 duration:0.029s]
+2026-06-03 23:12:56,326 [INFO] middleware.auth_middleware: GET /api/search 200 499.3ms user=-
+INFO:     127.0.0.1:52266 - "GET /api/search?q=%E5%BF%83%E6%83%85%E6%84%89%E5%BF%AB%E7%9A%84%E8%81%9A%E4%BC%9A%E5%9C%BA%E6%89%80&city=beijing&semantic=true&limit=3 HTTP/1.1" 200 OK
+2026-06-03 23:12:56,448 [INFO] httpx: HTTP Request: POST https://open.bigmodel.cn/api/paas/v4/embeddings "HTTP/1.1 200 OK"
+2026-06-03 23:12:56,461 [INFO] elastic_transport.transport: POST http://localhost:9200/restaurants/_search [status:200 duration:0.012s]
+2026-06-03 23:12:56,464 [INFO] middleware.auth_middleware: GET /api/search 200 127.9ms user=-
+INFO:     127.0.0.1:52276 - "GET /api/search?q=%E7%B4%A0%E9%A3%9F&city=beijing&semantic=false&limit=3 HTTP/1.1" 200 OK
+2026-06-04 14:45:18,078 [INFO] httpx: HTTP Request: POST https://open.bigmodel.cn/api/paas/v4/embeddings "HTTP/1.1 200 OK"
+2026-06-04 14:45:18,277 [INFO] elastic_transport.transport: POST http://localhost:9200/restaurants/_search [status:200 duration:0.198s]
+2026-06-04 14:45:18,284 [INFO] middleware.auth_middleware: GET /api/search 200 392.3ms user=-
+INFO:     127.0.0.1:36576 - "GET /api/search?q=Thai&city=hongkong&limit=3 HTTP/1.1" 200 OK

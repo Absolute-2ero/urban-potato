@@ -26,6 +26,7 @@ export function useSearchSync() {
     const urlSort     = urlParams.get('sort') || 'default'
     const urlOffset   = parseInt(urlParams.get('offset') || '0', 10)
     const urlRadiusKm = urlParams.get('radius_km') ? Number(urlParams.get('radius_km')) : null
+    const urlSemantic = urlParams.get('semantic') === 'true'
 
     setQ(urlQ)
     setDietLabels(urlDiet)
@@ -34,7 +35,6 @@ export function useSearchSync() {
     setOffset(urlOffset)
     if (urlRadiusKm != null) setLocalFilters({ radiusKm: urlRadiusKm })
 
-    // 直接把解析好的值传给 doSearch，不依赖 store 异步更新
     doSearch({
       q:            urlQ,
       diet_labels:  urlDiet.length ? urlDiet : undefined,
@@ -42,6 +42,7 @@ export function useSearchSync() {
       sort_mode:    urlSort,
       offset:       urlOffset,
       ...(urlRadiusKm != null ? { radius_km: urlRadiusKm } : {}),
+      ...(urlSemantic ? { semantic: true } : {}),
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlParams.toString()])

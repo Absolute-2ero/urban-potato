@@ -74,6 +74,7 @@ class SearchParams(BaseModel):
     lng: Optional[float] = None
     radius_km: Optional[float] = 5.0
     sort_mode: str = "default"
+    semantic: bool = False                 # 纯语义搜索模式（kNN only）
     offset: int = 0
     limit: int = 20
     min_rating: Optional[float] = None

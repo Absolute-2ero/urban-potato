@@ -27,6 +27,8 @@ def build_query(
     min_calories: Optional[int] = None,
     max_calories: Optional[int] = None,
     min_protein_g: Optional[float] = None,
+    query_embedding: Optional[List[float]] = None,
+    semantic_only: bool = False,
 ) -> Dict[str, Any]:
     filter_clauses: List[Dict] = []
     query_text = " ".join(tokens)
@@ -162,7 +164,7 @@ def build_query(
         "cuisine_type": {"terms": {"field": "cuisine_type.keyword", "size": 20}},
     }
 
-    return {
+    body: Dict[str, Any] = {
         "from": from_,
         "size": size,
         "query": final_query,
@@ -170,6 +172,38 @@ def build_query(
         "aggs": aggs,
         "_source": True,
     }
+
+    # ── Hybrid / Semantic: add kNN when embedding is available ───────────────
+    if query_embedding:
+        knn_filter = [{"term": {"city": "hongkong"}}]
+        if geo:
+            lat, lng = geo
+            knn_filter.append({
+                "geo_distance": {
+                    "distance": f"{geo_radius_km}km",
+                    "geo": {"lat": lat, "lon": lng},
+                }
+            })
+        if semantic_only:
+            body["query"] = {"bool": {"filter": knn_filter}}
+            body.pop("sort", None)
+            body["knn"] = {
+                "field": "embedding",
+                "query_vector": query_embedding,
+                "k": max(size * 5, 100),
+                "num_candidates": max(size * 20, 500),
+                "filter": knn_filter,
+            }
+        elif sort_mode in ("default", ""):
+            body["knn"] = {
+                "field": "embedding",
+                "query_vector": query_embedding,
+                "k": max(size * 3, 60),
+                "num_candidates": max(size * 10, 200),
+                "filter": knn_filter,
+            }
+
+    return body
 
 
 def flatten_hit(hit: Dict[str, Any]) -> Dict[str, Any]:

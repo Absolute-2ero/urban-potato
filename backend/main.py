@@ -20,7 +20,7 @@ from database import (
 )
 from db import init_sqlite_schema
 from middleware.auth_middleware import RequestLogMiddleware
-from routers import auth, cities, diet, feedback, food, internal, restaurants, search
+from routers import auth, cities, diet, feedback, food, interactions, internal, restaurants, search
 from services.index_service import ensure_index
 from services.search_service import init_search_components
 
@@ -125,6 +125,7 @@ app.include_router(diet.router)
 app.include_router(search.router)
 app.include_router(restaurants.router)
 app.include_router(feedback.router)
+app.include_router(interactions.router)
 app.include_router(internal.router)
 
 

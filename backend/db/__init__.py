@@ -55,6 +55,17 @@ async def init_sqlite_schema(conn: aiosqlite.Connection) -> None:
             PRIMARY KEY (user_id, restaurant_id)
         );
 
+        CREATE TABLE IF NOT EXISTS user_interactions (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            restaurant_id   TEXT NOT NULL,
+            interaction_type TEXT NOT NULL DEFAULT 'view',
+            created_at      TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_ui_user_recent
+        ON user_interactions(user_id, created_at DESC);
+
         CREATE TABLE IF NOT EXISTS food_items (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             name_zh      TEXT NOT NULL,

@@ -6,6 +6,7 @@ import { SearchBar } from '@/components/search/SearchBar'
 import { FilterBar, FilterState, EMPTY_FILTERS } from '@/components/search/FilterBar'
 import { LocationPickerModal, reverseGeocode } from '@/components/location/LocationPickerModal'
 import { fetchCities } from '@/api/cities'
+import { parseQuery } from '@/api/search'
 import { useSearchStore } from '@/stores/searchStore'
 import { useAuthStore } from '@/stores/authStore'
 import { loadPrefs, prefsToDietLabels, hasPrefs } from '@/utils/prefs'
@@ -38,7 +39,7 @@ interface _VegParticle { id: number; emoji: string; x: number; y: number; vx: st
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const { lat, lng, locationName, setLocation, setLocationName, setCity, city: storeCity } = useSearchStore()
+  const { lat, lng, locationName, setLocation, setLocationName, setCity, city: storeCity, searchMode, setSearchMode } = useSearchStore()
   const { t } = useLang()
   const { user } = useAuthStore()
   const [q, setQ] = useState('')
@@ -71,6 +72,7 @@ export default function HomePage() {
   const [locModalOpen, setLocModalOpen] = useState(false)
   const [cities, setCities] = useState<City[]>([])
   const [selectedCity, setSelectedCity] = useState<string | null>(storeCity || null)
+  const [parsing, setParsing] = useState(false)
 
   useEffect(() => {
     fetchCities().then((list) => {
@@ -129,14 +131,45 @@ export default function HomePage() {
     )
   }, [])
 
-  const goSearch = (query: string) => {
+  const goSearch = async (query: string) => {
+    const trimmed = query.trim()
     const params = new URLSearchParams()
     if (selectedCity) params.set('city', selectedCity)
-    if (query) params.set('q', query)
     filters.dietLabels.forEach((d) => params.append('diet', d))
     filters.priceLevels.forEach((p) => params.append('price', String(p)))
     if (filters.sortMode !== 'default') params.set('sort', filters.sortMode)
     if (filters.maxDistanceKm != null) params.set('radius_km', String(filters.maxDistanceKm))
+
+    if (searchMode === 'semantic') {
+      params.set('q', trimmed)
+      params.set('semantic', 'true')
+      navigate(`/search?${params.toString()}`)
+      return
+    }
+
+    if (trimmed.length > 5) {
+      setParsing(true)
+      try {
+        const parsed = await parseQuery(trimmed, selectedCity ?? undefined)
+        if (parsed?.has_extracted_params) {
+          params.set('q', parsed.q || trimmed)
+          parsed.diet_labels.forEach((d) => params.append('diet', d))
+          parsed.price_levels.forEach((p) => params.append('price', String(p)))
+          if (parsed.sort_mode !== 'default') params.set('sort', parsed.sort_mode)
+          if (parsed.radius_km != null) params.set('radius_km', String(parsed.radius_km))
+          if (parsed.location_lat != null && parsed.location_lng != null) {
+            params.set('lat', String(parsed.location_lat))
+            params.set('lng', String(parsed.location_lng))
+          }
+          navigate(`/search?${params.toString()}`)
+          return
+        }
+      } catch { /* fallback to plain search */ } finally {
+        setParsing(false)
+      }
+    }
+
+    if (trimmed) params.set('q', trimmed)
     navigate(`/search?${params.toString()}`)
   }
 
@@ -203,8 +236,11 @@ export default function HomePage() {
             <SearchBar
               value={q}
               onChange={setQ}
-              onSearch={(v) => goSearch(v)}
+              onSearch={goSearch}
               placeholder={t.home_placeholder}
+              loading={parsing}
+              searchMode={searchMode}
+              onSearchModeChange={setSearchMode}
             />
           </div>
 

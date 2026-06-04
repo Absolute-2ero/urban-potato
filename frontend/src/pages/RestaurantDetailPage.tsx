@@ -13,6 +13,7 @@ import { useSearchStore } from '@/stores/searchStore'
 import { saveRestaurant, unsaveRestaurant, getSavedRestaurants } from '@/api/diet'
 import { useAuthStore } from '@/stores/authStore'
 import { addRestaurantView } from '@/utils/history'
+import { logInteraction } from '@/api/interactions'
 import { AllergenWarning } from '@/components/common/AllergenWarning'
 import { DietBadgeGroup } from '@/components/common/DietBadge'
 import { getPriceLevelMeta } from '@/constants'
@@ -47,7 +48,7 @@ export default function RestaurantDetailPage() {
         setLoading(false)
         addRestaurantView(
           {
-            id: crypto.randomUUID(),
+            id: (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)),
             restaurantId: r.restaurant_id,
             restaurantName: r.name,
             dishes: r.menu_items?.slice(0, 5).map((item) => item.name) ?? [],
@@ -55,6 +56,7 @@ export default function RestaurantDetailPage() {
           },
           user?.id,
         )
+        if (user) logInteraction(r.restaurant_id, 'view')
       }
     )
   }, [id])
@@ -66,6 +68,7 @@ export default function RestaurantDetailPage() {
       await unsaveRestaurant(id)
     } else {
       await saveRestaurant(id)
+      logInteraction(id, 'save')
     }
     setSaved(!saved)
   }
