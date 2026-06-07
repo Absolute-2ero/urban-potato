@@ -18,6 +18,7 @@ import type { DietLabel } from '@/types'
 const { Title, Text } = Typography
 
 const HK_CENTRE = { lat: 22.3193, lng: 114.1694 }
+const BJ_CENTRE = { lat: 40.0038, lng: 116.3225 }
 
 // ── Easter egg ────────────────────────────────────────────────────────────────
 const _VEGGIES = ['🥕','🥦','🧅','🍅','🌽','🥑','🫑','🌶️','🍆','🧄','🥬','🫛','🥒','🧆']
@@ -109,11 +110,14 @@ export default function HomePage() {
     }
   }, [user?.id])
 
-  // On first load: try GPS, fall back to HK centre
+  // On first load: try GPS, fall back to city centre
   useEffect(() => {
     if (lat !== null) return
+    const fallback = storeCity === 'hongkong' ? HK_CENTRE : BJ_CENTRE
+    const fallbackName = storeCity === 'hongkong' ? 'Hong Kong' : '清华大学'
     if (!('geolocation' in navigator)) {
-      setLocation(HK_CENTRE.lat, HK_CENTRE.lng)
+      setLocation(fallback.lat, fallback.lng)
+      setLocationName(fallbackName)
       return
     }
     navigator.geolocation.getCurrentPosition(
@@ -123,8 +127,8 @@ export default function HomePage() {
         setLocationName(name)
       },
       () => {
-        setLocation(HK_CENTRE.lat, HK_CENTRE.lng)
-        setLocationName('Hong Kong')
+        setLocation(fallback.lat, fallback.lng)
+        setLocationName(fallbackName)
         message.info(t.home_no_location)
       },
       { timeout: 5000 },
@@ -268,8 +272,8 @@ export default function HomePage() {
 
       <LocationPickerModal
         open={locModalOpen}
-        initialLat={lat ?? HK_CENTRE.lat}
-        initialLng={lng ?? HK_CENTRE.lng}
+        initialLat={lat ?? (storeCity === 'hongkong' ? HK_CENTRE.lat : BJ_CENTRE.lat)}
+        initialLng={lng ?? (storeCity === 'hongkong' ? HK_CENTRE.lng : BJ_CENTRE.lng)}
         onConfirm={(lat, lng, name) => { setLocation(lat, lng); setLocationName(name) }}
         onClose={() => setLocModalOpen(false)}
       />

@@ -200,14 +200,14 @@ async def batch_crawl_city(city: str, keywords: Optional[List[str]] = None) -> i
         from crawler.eleme_crawler import crawl_by_keyword as eleme_kw
         # 城市中心坐标（目前只做北京）
         city_coords = {
-            "beijing":   (39.9042, 116.4074),
+            "beijing":   (40.0038, 116.3225),
             "shanghai":  (31.2304, 121.4737),
             "guangzhou": (23.1291, 113.2644),
             "shenzhen":  (22.5431, 114.0579),
             "chengdu":   (30.5728, 104.0668),
             "hangzhou":  (30.2741, 120.1551),
         }
-        lat, lng = city_coords.get(city.lower(), (39.9042, 116.4074))
+        lat, lng = city_coords.get(city.lower(), (40.0038, 116.3225))
         for kw in keywords:
             docs = await eleme_kw(kw, city_lat=lat, city_lng=lng, pages=2, fetch_menu=True)
             if docs:

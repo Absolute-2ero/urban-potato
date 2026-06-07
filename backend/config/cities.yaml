@@ -10,8 +10,8 @@ cities:
     label: Beijing
     label_zh: 北京
     center:
-      lat: 39.9042
-      lng: 116.4074
+      lat: 40.0038
+      lng: 116.3225
 
   # Add more cities here and re-run the pipeline:
   # - id: shanghai

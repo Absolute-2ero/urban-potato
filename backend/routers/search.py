@@ -36,7 +36,7 @@ async def search(
     min_rating: Optional[float] = Query(None, ge=0, le=5, description="最低评分"),
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lng: Optional[float] = Query(None, ge=-180, le=180),
-    radius_km: Optional[float] = Query(5.0, ge=0.1, le=50.0),
+    radius_km: Optional[float] = Query(30.0, ge=0.1, le=50.0),
     sort_mode: str = Query("default", description="排序模式"),
     semantic: bool = Query(False, description="纯语义搜索模式（kNN only，跳过 BM25 文本匹配）"),
     offset: int = Query(0, ge=0),

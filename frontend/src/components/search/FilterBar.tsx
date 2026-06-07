@@ -362,7 +362,7 @@ export function FilterBar({
   const [openGroup, setOpenGroup] = useState<string | null>(null)
   const [calSlider, setCalSlider] = useState<[number, number]>([0, 800])
   const [priceSlider, setPriceSlider] = useState<[number, number]>([0, 0])
-  const [distSlider, setDistSlider] = useState<number>(5)
+  const [distSlider, setDistSlider] = useState<number>(30)
   const [ratingSlider, setRatingSlider] = useState<number>(4.0)
 
   useEffect(() => {
@@ -376,7 +376,7 @@ export function FilterBar({
   }, [filters.priceRange])
 
   useEffect(() => {
-    if (filters.maxDistanceKm === null) setDistSlider(5)
+    if (filters.maxDistanceKm === null) setDistSlider(30)
     else setDistSlider(filters.maxDistanceKm)
   }, [filters.maxDistanceKm])
 
@@ -665,7 +665,7 @@ export function FilterBar({
           <div style={{ paddingRight: 6, marginBottom: 4 }}>
             <Slider
               min={0.5}
-              max={10}
+              max={50}
               step={0.5}
               value={distSlider}
               onChange={(v) => setDistSlider(v as number)}
@@ -675,11 +675,11 @@ export function FilterBar({
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: -8, marginBottom: 8 }}>
               <Text type="secondary" style={{ fontSize: 11 }}>500m</Text>
-              <Text type="secondary" style={{ fontSize: 11 }}>10km</Text>
+              <Text type="secondary" style={{ fontSize: 11 }}>50km</Text>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }}>
-            {([0.5, 1, 3, 5] as number[]).map((km) => (
+            {([1, 5, 10, 30] as number[]).map((km) => (
               <button
                 key={km}
                 onClick={() => { setDistSlider(km); onFilterChange({ maxDistanceKm: km }) }}
@@ -693,7 +693,7 @@ export function FilterBar({
             ))}
             {filters.maxDistanceKm !== null && (
               <button
-                onClick={() => { setDistSlider(5); onFilterChange({ maxDistanceKm: null }) }}
+                onClick={() => { setDistSlider(30); onFilterChange({ maxDistanceKm: null }) }}
                 style={{
                   padding: '3px 10px', borderRadius: 6, border: '1.5px solid #E85454',
                   background: '#FFF0F0', fontSize: 12, cursor: 'pointer', outline: 'none', color: '#E85454',

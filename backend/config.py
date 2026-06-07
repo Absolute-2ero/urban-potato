@@ -69,7 +69,7 @@ def load_cities() -> list[dict]:
     import yaml
     path = cfg.cities_config_path
     if not os.path.exists(path):
-        return [{"id": "beijing", "label": "北京", "center": {"lat": 39.9042, "lng": 116.4074}}]
+        return [{"id": "beijing", "label": "北京", "center": {"lat": 40.0038, "lng": 116.3225}}]
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
     return data.get("cities", [])

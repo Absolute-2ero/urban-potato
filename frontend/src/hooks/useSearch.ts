@@ -56,6 +56,7 @@ export function useSearchSync() {
         price: number[]
         sort: string
         offset: number
+        semantic: boolean
       }>
     ) => {
       const next = new URLSearchParams(urlParams)
@@ -77,6 +78,9 @@ export function useSearchSync() {
       }
       if ('offset' in patch) {
         patch.offset ? next.set('offset', String(patch.offset)) : next.delete('offset')
+      }
+      if ('semantic' in patch) {
+        patch.semantic ? next.set('semantic', 'true') : next.delete('semantic')
       }
       setUrlParams(next, { replace: false })
     },

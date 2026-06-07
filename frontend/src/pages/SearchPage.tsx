@@ -87,8 +87,8 @@ function LocationRow() {
       </button>
       <LocationPickerModal
         open={open}
-        initialLat={lat ?? 39.9042}
-        initialLng={lng ?? 116.4074}
+        initialLat={lat ?? 40.0038}
+        initialLng={lng ?? 116.3225}
         onConfirm={(lat, lng, name) => { setLocation(lat, lng); setLocationName(name); doSearch() }}
         onClose={() => setOpen(false)}
       />
@@ -183,11 +183,10 @@ export default function SearchPage() {
     const trimmed = rawQuery.trim()
     if (!trimmed) return
 
-    // ── Semantic mode: skip LLM, send raw query with semantic=true ───────────
+    // ── Semantic mode: put semantic=true in URL → useSearchSync handles search ─
     if (searchMode === 'semantic') {
       setParsedInfo(null)
-      doSearch({ q: trimmed, semantic: true, offset: 0 })
-      push({ q: trimmed, offset: 0 })
+      push({ q: trimmed, semantic: true, offset: 0 })
       return
     }
 
@@ -249,6 +248,7 @@ export default function SearchPage() {
       diet: parsed.diet_labels as DietLabel[],
       price: parsed.price_levels,
       sort: parsed.sort_mode,
+      semantic: false,
       offset: 0,
     })
   }
@@ -280,11 +280,14 @@ export default function SearchPage() {
           <div style={{ marginBottom: 10 }}>
             <SearchBar
               value={q}
-              onChange={(val) => { push({ q: val }); setParsedInfo(null) }}
+              onChange={() => { setParsedInfo(null) }}
               onSearch={handleSmartSearch}
               loading={parsing}
               searchMode={searchMode}
-              onSearchModeChange={setSearchMode}
+              onSearchModeChange={(mode) => {
+                setSearchMode(mode)
+                if (mode === 'smart') push({ semantic: false })
+              }}
             />
           </div>
           <FilterBar filters={filters} onFilterChange={handleFilterChange} hideLocation />
